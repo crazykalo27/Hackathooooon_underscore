@@ -41,7 +41,7 @@ class Game(Entity):
             parent=__import__("ursina", fromlist=["camera"]).camera.ui,
             model="quad",
             shader=COLOR,
-            color=color.rgba(10, 12, 18, 0),
+            color=color.rgba(176, 216, 248, 0),
             scale=2,
             z=-1,
             enabled=False,
@@ -103,6 +103,11 @@ class Game(Entity):
         self._draw_ui()
 
     def _draw_ui(self):
+        from proto.config import CAM_DIST_MAX
+
+        zoom_pct = None
+        if self.cam is not None:
+            zoom_pct = max(0.0, min(100.0, (self.cam.dist / CAM_DIST_MAX) * 100.0))
         self.ui.refresh(
             self.state,
             near_npc=self.near_npc,
@@ -111,6 +116,7 @@ class Game(Entity):
             d_i=self.d_i,
             typed=self.typed,
             builder=self.builder if self.state.mode == "build" else None,
+            zoom_pct=zoom_pct,
         )
         far = bool(self.cam and self.cam.dist > 48)
         self.ui.sync_names(
@@ -121,7 +127,7 @@ class Game(Entity):
         if self.state.mode == "fade":
             self.fade_veil.enabled = True
             a = int(min(1, self.fade) * 255)
-            self.fade_veil.color = color.rgba(10, 12, 18, a)
+            self.fade_veil.color = color.rgba(176, 216, 248, a)
         else:
             self.fade_veil.enabled = False
 

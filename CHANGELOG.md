@@ -1,5 +1,20 @@
 # Underscore log
 
+- Play zoom tops out at 20%; past that it eases to map mode at 40%. Hull cutaway ends at 40%.
+
+- Top bar shows zoom-out percent (distance / max).
+
+- Zoom eases across 35–50%: about 0.7s auto zoom between play and map. Hull cutaway ends at 50%.
+
+- Zoom jumps the dead band between 45% and 60%: play mode follows the player; map mode is free camera, no walking, hull solid.
+
+- World is a toy diorama now: cream rocket with wood trim, blue stripe, chunky wings and glowing engines; colonies are cake-slice islands with cottages, trees, and critters. People are chubby low-poly toys.
+- The round hull hole is gone. The shell drops everything on the camera's side of the player, so a top view loses the roof and a side view loses the near wall.
+
+- UI shifted to Pocket Build: slim navy top bar, cream cards, catalog tiles, sentence case. Loader is a cream card on sky, not a hull terminal.
+
+- Pocket Build look broken down in `docs/pocket-build-look.md`: toy island in a void, cake-slice land, catalog props, bright fill light. Copy that system, not their assets.
+
 - Ship exterior is a vessel now: swept wings, keel, nose, glowing engines, distant Earth.
 - Cabin cutaway stays on at any zoom: the near wall/wing/roof drop so the player stays visible. Earth and the keel do not.
 - Cutaway is only the slice you look through, around the player. Far wing, nose, and the rest of the hull stay up.

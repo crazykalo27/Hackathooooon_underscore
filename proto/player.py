@@ -6,7 +6,7 @@ import math
 
 from ursina import Entity, Vec3, held_keys, mouse, time
 
-from proto.config import ACCENT, CREAM, MOVE_SPEED, PEACH
+from proto.config import ACCENT, MOVE_SPEED, PEACH
 from proto.figure import attach
 
 
@@ -21,7 +21,16 @@ class Player(Entity):
             collider="box",
             visible=False,
         )
-        attach(self, shirt=CREAM, pants=(92, 98, 118), hair=(72, 58, 68), accent=ACCENT, skin=PEACH)
+        attach(
+            self,
+            shirt=(244, 236, 220),
+            pants=(86, 138, 196),
+            hair=(92, 64, 52),
+            accent=ACCENT,
+            skin=PEACH,
+            shoes=(72, 56, 48),
+            look=4,
+        )
         self.speed = MOVE_SPEED
         self.enabled_control = False
         self.rotation_y = 90
@@ -55,6 +64,8 @@ class Player(Entity):
 
     def update(self):
         if not self.enabled_control:
+            return
+        if self.cam and self.cam.overview:
             return
         if self.cam:
             fwd = self.cam.view_forward()

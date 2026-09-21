@@ -32,8 +32,23 @@ BOUNCY = (232, 132, 96)
 HYDRO = (96, 176, 220)
 CIRCUIT = (120, 196, 148)
 STRUCT = (232, 176, 96)
-SKY = (168, 206, 236)
+SKY = (176, 216, 248)
 SPACE = (6, 10, 22)
+
+# Pocket Build UI — cream cards, slim navy chips, toy pips
+UI_INK = (56, 62, 78)
+UI_MUTED = (118, 130, 148)
+UI_CREAM = (255, 248, 236)
+UI_CREAM_D = (236, 226, 210)
+UI_CHIP = (42, 56, 92)
+UI_CHIP_DEEP = (28, 38, 64)
+UI_WOOD = (196, 140, 88)
+UI_GOLD = (232, 188, 72)
+UI_GRASS = (168, 204, 88)
+UI_ROOF = (72, 120, 176)
+UI_CLAY = (196, 92, 72)
+UI_PEACH = (236, 196, 176)
+UI_SHADOW = (24, 30, 42)
 STAR = (236, 244, 255)
 STAR_DIM = (120, 156, 210)
 SHIP_FLOOR = (18, 26, 42)
@@ -73,7 +88,9 @@ CAM_PITCH_MAX = 80.0
 CAM_DIST = 26.0
 CAM_DIST_MIN = 4.0
 CAM_DIST_MAX = 400.0
-CAM_EDGE = 0.25
+# Play stays at or under 20%. Crossing that eases to map mode at 40%.
+CAM_PLAY_MAX = CAM_DIST_MAX * 0.20
+CAM_MAP_MIN = CAM_DIST_MAX * 0.40
 CAM_LOOK_Y = 1.15
 
 

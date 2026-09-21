@@ -16,7 +16,7 @@ def run():
 
     app = Ursina()
     visuals.apply()
-    window.title = "UNDERSCORE"
+    window.title = "Underscore"
     window.borderless = False
     window.exit_button.visible = False
     window.fps_counter.enabled = False

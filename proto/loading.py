@@ -7,7 +7,20 @@ import math
 from ursina import Entity, Text, camera, destroy, time
 from ursina import color as ursina_color
 
-from proto.config import ACCENT, FONT, GOLD, IRON, LAMP, MUTED, PAPER, PATINA, SHADOW, SPACE, rgb
+from proto.config import (
+    FONT,
+    SKY,
+    UI_CLAY,
+    UI_CREAM,
+    UI_CREAM_D,
+    UI_GOLD,
+    UI_GRASS,
+    UI_INK,
+    UI_MUTED,
+    UI_ROOF,
+    UI_SHADOW,
+    rgb,
+)
 from proto.visuals import COLOR
 
 
@@ -21,7 +34,7 @@ class LoadingScreen:
             parent=self.root,
             model="quad",
             shader=COLOR,
-            color=rgb(SPACE),
+            color=rgb(SKY),
             scale=4,
             z=2,
         )
@@ -29,99 +42,100 @@ class LoadingScreen:
             parent=self.root,
             model="quad",
             shader=COLOR,
-            color=rgb(SHADOW),
-            scale=(0.72, 0.50),
-            y=0.04,
-            z=1.2,
+            color=rgb(UI_SHADOW),
+            scale=(0.62, 0.40),
+            y=0.02,
+            z=1.3,
         )
         Entity(
             parent=self.root,
             model="quad",
             shader=COLOR,
-            color=rgb(IRON),
-            scale=(0.68, 0.46),
-            y=0.04,
+            color=rgb(UI_CREAM),
+            scale=(0.60, 0.38),
+            y=0.03,
             z=1,
         )
         Entity(
             parent=self.root,
             model="quad",
             shader=COLOR,
-            color=rgb(LAMP),
-            scale=(0.58, 0.008),
-            y=0.22,
-            z=0.5,
+            color=rgb(UI_CREAM_D),
+            scale=(0.60, 0.012),
+            y=-0.154,
+            z=0.8,
         )
         Text(
             parent=self.root,
             font=FONT,
             use_tags=False,
-            text="SEEDED PROGRAM",
-            y=0.16,
+            text="Underscore",
+            y=0.12,
             origin=(0, 0),
-            scale=1.0,
-            color=rgb(LAMP),
+            scale=1.45,
+            color=rgb(UI_INK),
         )
         Text(
             parent=self.root,
             font=FONT,
             use_tags=False,
-            text="UNDERSCORE",
-            y=0.07,
+            text="setting the table",
+            y=0.04,
             origin=(0, 0),
-            scale=1.5,
-            color=rgb(PAPER),
+            scale=0.95,
+            color=rgb(UI_MUTED),
         )
         self.status = Text(
             parent=self.root,
             font=FONT,
             use_tags=False,
-            text="LOADING",
-            y=-0.12,
+            text="loading",
+            y=-0.10,
             origin=(0, 0),
-            scale=1.08,
-            color=rgb(MUTED),
+            scale=0.95,
+            color=rgb(UI_MUTED),
         )
         self.bar_bg = Entity(
-            parent=self.root, model="quad", shader=COLOR, color=rgb(SHADOW), scale=(0.42, 0.024), y=-0.2, z=1
+            parent=self.root, model="quad", shader=COLOR, color=rgb(UI_CREAM_D), scale=(0.40, 0.016), y=-0.16, z=1
         )
         self.bar = Entity(
-            parent=self.root, model="quad", shader=COLOR, color=rgb(LAMP), scale=(0.02, 0.024), y=-0.2, x=-0.2, z=0
+            parent=self.root, model="quad", shader=COLOR, color=rgb(UI_ROOF), scale=(0.02, 0.016), y=-0.16, x=-0.19, z=0
         )
         self.cubes = []
-        palette = (ACCENT, GOLD, PATINA, LAMP)
+        palette = (UI_GRASS, UI_GOLD, UI_ROOF, UI_CLAY)
         for i, col in enumerate(palette):
             q = Entity(
                 parent=self.root,
-                model="quad",
+                model="circle" if i % 2 else "quad",
                 shader=COLOR,
                 color=rgb(col),
-                scale=0.05,
-                x=-0.09 + i * 0.06,
+                scale=0.036,
+                x=-0.08 + i * 0.054,
                 y=-0.02,
                 z=0,
             )
             self.cubes.append(q)
 
     def set_status(self, text):
-        self.status.text = (text or "LOADING").upper()
+        raw = (text or "loading").replace("_", " ").strip().lower()
+        self.status.text = raw
 
     def set_progress(self, t):
         t = max(0.0, min(1.0, t))
-        self.bar.scale_x = 0.02 + 0.40 * t
-        self.bar.x = -0.20 + self.bar.scale_x * 0.5
+        self.bar.scale_x = 0.02 + 0.38 * t
+        self.bar.x = -0.19 + self.bar.scale_x * 0.5
 
     def tick(self, dt):
         self.t += dt
-        if not self.closing and self.status.text.startswith("LOAD"):
-            self.status.text = "LOADING" + "." * (1 + int(self.t * 3) % 3)
+        if not self.closing and self.status.text.startswith("load"):
+            self.status.text = "loading" + "." * (1 + int(self.t * 3) % 3)
         for i, q in enumerate(self.cubes):
-            q.y = -0.02 + math.sin(self.t * 5 + i * 0.9) * 0.035
-            q.rotation_z = self.t * 70 + i * 20
+            q.y = -0.02 + math.sin(self.t * 5 + i * 0.9) * 0.028
+            q.rotation_z = self.t * 50 + i * 20
         if self.closing:
             self.fade = max(0.0, self.fade - dt * 1.8)
             a = int(self.fade * 255)
-            self.veil.color = ursina_color.rgba(SPACE[0], SPACE[1], SPACE[2], a)
+            self.veil.color = ursina_color.rgba(SKY[0], SKY[1], SKY[2], a)
             if self.fade <= 0:
                 destroy(self.root)
                 return False
@@ -155,7 +169,7 @@ class Boot(Entity):
             return
         if self.phase == 0:
             self.wait += dt
-            self.screen.set_status("LOADING")
+            self.screen.set_status("loading")
             self.screen.set_progress(min(0.16, self.wait / 0.5 * 0.16))
             if self.wait >= 0.5:
                 self.phase = 1
@@ -163,7 +177,7 @@ class Boot(Entity):
             return
         if self.phase == 1:
             if not self.ready:
-                self.screen.set_status("SYSTEMS")
+                self.screen.set_status("waking")
                 self.screen.set_progress(0.18)
                 self.ready = True
                 return
@@ -175,7 +189,7 @@ class Boot(Entity):
             return
         if self.phase == 2:
             if not self.ready:
-                self.screen.set_status("HULL")
+                self.screen.set_status("the hall")
                 self.screen.set_progress(0.22)
                 self.ready = True
                 return
@@ -202,7 +216,7 @@ class Boot(Entity):
             return
         if self.phase == 4:
             if not self.ready:
-                self.screen.set_status("READY")
+                self.screen.set_status("ready")
                 self.screen.set_progress(1)
                 self.ready = True
                 return

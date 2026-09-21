@@ -9,6 +9,16 @@ from __future__ import annotations
 
 from ursina import AmbientLight, DirectionalLight, Entity, Shader, camera, color, window
 
+_LIT_FRAG = """
+vec3 toy_rgb(vec4 tint, vec3 nrm) {
+    vec3 n = normalize(nrm);
+    vec3 key = normalize(vec3(0.42, 0.86, 0.22));
+    float wrap = clamp(dot(n, key) * 0.5 + 0.5, 0.0, 1.0);
+    float shade = mix(0.58, 1.08, wrap);
+    return tint.rgb * shade;
+}
+"""
+
 COLOR = Shader(
     name="underscore_color",
     language=Shader.GLSL,
@@ -28,33 +38,69 @@ void main() {
 """,
 )
 
+TOY = Shader(
+    name="underscore_toy",
+    language=Shader.GLSL,
+    vertex="""#version 150
+uniform mat4 p3d_ModelViewProjectionMatrix;
+uniform mat4 p3d_ModelMatrix;
+in vec4 p3d_Vertex;
+in vec3 p3d_Normal;
+out vec3 v_n;
+void main() {
+    v_n = mat3(p3d_ModelMatrix) * p3d_Normal;
+    gl_Position = p3d_ModelViewProjectionMatrix * p3d_Vertex;
+}
+""",
+    fragment="""#version 150
+uniform vec4 p3d_ColorScale;
+in vec3 v_n;
+out vec4 fragColor;
+"""
+    + _LIT_FRAG
+    + """
+void main() {
+    fragColor = vec4(toy_rgb(p3d_ColorScale, v_n), p3d_ColorScale.a);
+}
+""",
+)
+
 HULL = Shader(
     name="underscore_hull",
     language=Shader.GLSL,
     vertex="""#version 150
 uniform mat4 p3d_ModelViewProjectionMatrix;
+uniform mat4 p3d_ModelMatrix;
 in vec4 p3d_Vertex;
-out vec4 vclip;
+in vec3 p3d_Normal;
+out vec3 v_world;
+out vec3 v_n;
 void main() {
-    vclip = p3d_ModelViewProjectionMatrix * p3d_Vertex;
-    gl_Position = vclip;
+    vec4 w = p3d_ModelMatrix * p3d_Vertex;
+    v_world = w.xyz;
+    v_n = mat3(p3d_ModelMatrix) * p3d_Normal;
+    gl_Position = p3d_ModelViewProjectionMatrix * p3d_Vertex;
 }
 """,
     fragment="""#version 150
 uniform vec4 p3d_ColorScale;
-uniform float cut_ndc;
-uniform float cut_aspect;
-in vec4 vclip;
+uniform vec4 cut_point;
+uniform vec4 cut_dir;
+uniform float cut_on;
+in vec3 v_world;
+in vec3 v_n;
 out vec4 fragColor;
+"""
+    + _LIT_FRAG
+    + """
 void main() {
-    if (cut_ndc > 0.02 && vclip.w > 0.08) {
-        vec2 ndc = vclip.xy / vclip.w;
-        vec2 p = vec2(ndc.x * cut_aspect, ndc.y);
-        if (dot(p, p) < cut_ndc * cut_ndc) {
+    if (cut_on > 0.5) {
+        vec3 away = v_world - cut_point.xyz;
+        if (dot(away, cut_dir.xyz) > 0.2) {
             discard;
         }
     }
-    fragColor = p3d_ColorScale;
+    fragColor = vec4(toy_rgb(p3d_ColorScale, v_n), p3d_ColorScale.a);
 }
 """,
 )
@@ -89,12 +135,9 @@ def apply():
 def mood(map_name):
     if _ambient is None:
         return
-    if map_name == "ship":
-        _ambient.color = color.rgb(72, 104, 148)
-        _sun.color = color.rgb(186, 214, 255)
-    else:
-        _ambient.color = color.rgb(168, 196, 224)
-        _sun.color = color.rgb(255, 236, 214)
+    _ambient.color = color.rgb(186, 204, 220)
+    _sun.color = color.rgb(255, 236, 210)
+    _sun.rotation = (48, -32, 0)
 
 
 def paint(col):
@@ -107,12 +150,15 @@ def paint(col):
 
 
 def solid(col, hull=False, **kwargs):
-    """Always-visible mesh: vertex color, no texture sample."""
+    """World mesh: soft toy light. Hull shells also clip on the camera side."""
+    from ursina import Vec4
+
     kwargs.pop("texture", None)
-    kwargs["shader"] = HULL if hull else COLOR
+    kwargs["shader"] = HULL if hull else TOY
     kwargs["color"] = paint(col)
     e = Entity(**kwargs)
     if hull:
-        e.set_shader_input("cut_ndc", 0.0)
-        e.set_shader_input("cut_aspect", 1.6)
+        e.set_shader_input("cut_on", 0.0)
+        e.set_shader_input("cut_point", Vec4(0, 0, 0, 0))
+        e.set_shader_input("cut_dir", Vec4(0, 1, 0, 0))
     return e
