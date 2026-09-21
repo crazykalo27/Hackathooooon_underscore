@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import math
+
 from ursina import Entity, Vec3, destroy, scene
 
 from proto import story
 from proto.config import (
+    ACCENT,
     BRASS,
     BRASS_D,
     COPPER,
@@ -33,6 +36,10 @@ from proto.figure import attach, shade
 from proto.visuals import mood, solid
 
 STEEL_TOTEM = (176, 188, 204)
+
+
+def _cut_radius(dist):
+    return 8.0 + max(dist, 4.0) * 0.34
 
 
 class World:
@@ -68,27 +75,57 @@ class World:
         else:
             self._earth(flags)
 
-    def _box(self, col, pos, scale, collider=None, face=None):
-        e = solid(col, parent=self.root, model="cube", position=pos, scale=scale, collider=collider)
+    def _box(self, col, pos, scale, collider=None, face=None, model="cube", rot=None):
+        e = solid(col, hull=bool(face), parent=self.root, model=model, position=pos, scale=scale, collider=collider)
+        if rot:
+            e.rotation = rot
         if face:
             e.hull_face = face
             self.hull.append(e)
         return e
 
+    def _orb(self, col, pos, scale, face=None, rot=None):
+        if isinstance(scale, (int, float)):
+            scale = (scale, scale, scale)
+        return self._box(col, pos, scale, model="sphere", face=face, rot=rot)
+
     def set_hull_hidden(self, hide):
         if not hide:
-            if self._cut:
-                for e in self.hull:
-                    e.visible = True
-                self._cut = None
+            self.apply_cutaway(None, None, 0)
             return
-        key = (hide.get("n"), hide.get("s"), hide.get("e"), hide.get("w"), hide.get("ceil"))
+        self.apply_cutaway(hide.get("cam"), hide.get("look"), hide.get("dist", 26))
+
+    def apply_cutaway(self, cam, look, dist=26):
+        if cam is None or look is None or self.map_name != "ship":
+            self._cut = None
+            for e in self.hull:
+                e.visible = True
+                e.set_shader_input("cut_ndc", 0.0)
+            return
+        from ursina import camera
+
+        from proto.config import CAM_FOV
+
+        radius = _cut_radius(dist)
+        half = math.tan(math.radians(max(getattr(camera, "fov", CAM_FOV), 1.0)) * 0.5)
+        ndc = radius / max(dist, 1.0) / max(half, 0.05)
+        ndc = max(0.32, min(0.86, ndc))
+        aspect = float(getattr(camera, "aspect_ratio", 1.6) or 1.6)
+        key = (int(ndc * 80), int(aspect * 20), int(look.x * 4), int(look.z * 4))
         if key == self._cut:
             return
         self._cut = key
         for e in self.hull:
-            face = getattr(e, "hull_face", None)
-            e.visible = not hide.get(face, False)
+            e.visible = True
+            e.set_shader_input("cut_ndc", ndc)
+            e.set_shader_input("cut_aspect", aspect)
+
+    def _span_x(self, col, y, z, x0, x1, h, d, face=None, collider=None, bay=8.0):
+        x = x0
+        while x < x1 - 0.02:
+            w = min(bay, x1 - x)
+            self._box(col, (x + w * 0.5, y, z), (w, h, d), collider=collider, face=face)
+            x += bay
 
     def _arch(self, x, col=IRON):
         from proto.config import HALL_HALF
@@ -110,15 +147,15 @@ class World:
         for i in range(start + count):
             side = rng.choice(("n", "s", "up", "w", "e"))
             if side == "n":
-                pos = (rng.uniform(-10, length + 10), rng.uniform(0.4, 14), rng.uniform(hz + 6, hz + 32))
+                pos = (rng.uniform(-20, length + 20), rng.uniform(-8, 28), rng.uniform(hz + 48, hz + 110))
             elif side == "s":
-                pos = (rng.uniform(-10, length + 10), rng.uniform(0.4, 14), rng.uniform(-(hz + 32), -(hz + 6)))
+                pos = (rng.uniform(-20, length + 20), rng.uniform(-8, 28), rng.uniform(-(hz + 110), -(hz + 48)))
             elif side == "up":
-                pos = (rng.uniform(-4, length + 4), rng.uniform(HULL_CEIL + 2, 26), rng.uniform(-(hz + 8), hz + 8))
+                pos = (rng.uniform(-30, length + 30), rng.uniform(22, 58), rng.uniform(-(hz + 40), hz + 40))
             elif side == "w":
-                pos = (rng.uniform(-30, -10), rng.uniform(0.2, 16), rng.uniform(-(hz + 6), hz + 6))
+                pos = (rng.uniform(-90, -32), rng.uniform(-6, 24), rng.uniform(-(hz + 40), hz + 40))
             else:
-                pos = (rng.uniform(length + 8, length + 30), rng.uniform(0.2, 16), rng.uniform(-(hz + 6), hz + 6))
+                pos = (rng.uniform(length + 24, length + 90), rng.uniform(-6, 24), rng.uniform(-(hz + 40), hz + 40))
             s = rng.choice((0.07, 0.09, 0.12, 0.16, 0.22, 0.34))
             col = STAR if rng.random() > 0.28 else STAR_DIM
             if i < start:
@@ -126,12 +163,8 @@ class World:
             self._box(col, pos, (s, s, s))
 
     def _star_props(self, length):
-        from proto.config import HALL_HALF
-
-        hz = HALL_HALF
-        self._box(COPPER, (26, 6.2, -(hz + 12)), (5.6, 5.6, 5.6))
-        self._box(PATINA, (60, 8.0, hz + 14), (2.5, 2.5, 2.5))
-        self._box(BRASS, (10, 11.0, hz + 10), (1.3, 1.3, 1.3))
+        self._deep_space()
+        self._ext_earth()
 
     def _window(self, x, z, w=3.1, h=2.15, y=2.18, face=None):
         inward = -0.12 if z > 0 else 0.12
@@ -146,10 +179,10 @@ class World:
             self._box(BRASS, (x + rx, y + h * 0.5, fz), (0.14, 0.14, 0.26), face=face)
 
     def _hull_side(self, length, z, col, face):
-        self._box(col, (length / 2, 0.5, z), (length + 8, 1.0, 0.5), collider="box", face=face)
-        self._box(BRASS, (length / 2, 1.02, z + (-0.02 if z > 0 else 0.02)), (length + 8, 0.08, 0.56), face=face)
-        self._box(col, (length / 2, 3.95, z), (length + 8, 1.12, 0.5), collider="box", face=face)
-        self._box(col, (length / 2, 6.3, z), (length + 8, 3.6, 0.5), collider="box", face=face)
+        self._span_x(col, 0.5, z, -4.0, length + 4.0, 1.0, 0.5, face=face, collider="box")
+        self._span_x(BRASS, 1.02, z + (-0.02 if z > 0 else 0.02), -4.0, length + 4.0, 0.08, 0.56, face=face)
+        self._span_x(col, 3.95, z, -4.0, length + 4.0, 1.12, 0.5, face=face, collider="box")
+        self._span_x(col, 6.3, z, -4.0, length + 4.0, 3.6, 0.5, face=face, collider="box")
         spacing = 9.0
         win_w = 3.1
         windows = [4.0 + i * spacing for i in range(int((length - 6) / spacing))]
@@ -170,8 +203,8 @@ class World:
     def _dress_wall(self, length, z, face, windows):
         inward = -0.28 if z > 0 else 0.28
         fz = z + inward
-        self._box(BRASS, (length / 2, 4.55, fz), (length - 6, 0.16, 0.16), face=face)
-        self._box(COPPER, (length / 2, 4.78, fz), (length - 8, 0.1, 0.1), face=face)
+        self._span_x(BRASS, 4.55, fz, 3.0, length - 3.0, 0.16, 0.16, face=face)
+        self._span_x(COPPER, 4.78, fz, 4.0, length - 4.0, 0.1, 0.1, face=face)
         for x in range(2, int(length), 2):
             self._box(BRASS, (x, 1.04, fz), (0.12, 0.12, 0.12), face=face)
         for i, wx in enumerate(windows):
@@ -212,8 +245,8 @@ class World:
         for x in range(2, int(length), 8):
             self._box(IRON, (x + 2.2, HULL_CEIL, 0), (5.2, 0.24, wide - 0.5), face="ceil")
             self._box(BRASS, (x + 5.5, HULL_CEIL, 0), (0.32, 0.18, wide - 0.8), face="ceil")
-        self._box(COPPER, (length / 2, HULL_CEIL - 0.35, 4.2), (length - 8, 0.14, 0.14), face="ceil")
-        self._box(COPPER, (length / 2, HULL_CEIL - 0.35, -4.2), (length - 8, 0.14, 0.14), face="ceil")
+        self._span_x(COPPER, HULL_CEIL - 0.35, 4.2, 4.0, length - 4.0, 0.14, 0.14, face="ceil")
+        self._span_x(COPPER, HULL_CEIL - 0.35, -4.2, 4.0, length - 4.0, 0.14, 0.14, face="ceil")
         for x in range(8, int(length), 12):
             self._box(IRON, (x, HULL_CEIL - 0.55, 0), (0.12, 0.7, 0.12), face="ceil")
             self._box(LAMP, (x, HULL_CEIL - 0.95, 0), (0.5, 0.22, 0.5), face="ceil")
@@ -288,6 +321,126 @@ class World:
         self.pads[zone.key] = pad
         return pad
 
+    def _deep_space(self):
+        import random
+
+        rng = random.Random(77)
+        for _ in range(110):
+            pos = (
+                rng.uniform(-260, 320),
+                rng.uniform(-120, 160),
+                rng.uniform(-280, 280),
+            )
+            if abs(pos[0] - 46) < 90 and abs(pos[1] - 2) < 50 and abs(pos[2]) < 70:
+                continue
+            s = rng.choice((0.4, 0.55, 0.8, 1.2, 1.8, 2.6))
+            self._orb(STAR if rng.random() > 0.35 else STAR_DIM, pos, s)
+        self._orb(LAMP, (240, 110, 280), 16)
+        self._orb(GOLD, (246, 112, 286), 7)
+
+    def _ext_earth(self):
+        # Far below/south — continents sit on the ship-facing hemisphere.
+        c = (52, -186, -96)
+        self._orb((34, 86, 162), c, 248)
+        self._orb((58, 124, 72), (c[0] + 18, c[1] + 78, c[2] + 22), 92)
+        self._orb((138, 118, 64), (c[0] - 28, c[1] + 70, c[2] - 36), 74)
+        self._orb((168, 142, 78), (c[0] + 40, c[1] + 62, c[2] - 20), 48)
+        self._orb((46, 98, 64), (c[0] + 52, c[1] + 48, c[2] + 40), 58)
+        self._orb((228, 236, 246), (c[0] - 4, c[1] + 108, c[2] - 6), 44)
+        self._orb((164, 168, 174), (178, -128, -236), 20)
+        self._orb((118, 124, 132), (186, -124, -242), 8)
+
+    def _ext_nose(self, hz):
+        self._orb(IRON, (-12, 6.5, 0), (15, 3.0, 16), face=("w", "ceil"))
+        self._orb(IRON_B, (-12, -0.7, 0), (15, 2.2, 15))
+        self._orb(IRON, (-10.5, 3.3, 9.6), (12, 5.8, 8.2), face=("n", "w"))
+        self._orb(IRON, (-10.5, 3.3, -9.6), (12, 5.8, 8.2), face=("s", "w"))
+        self._orb(IRON_B, (-19, 1.05, 0), (11, 1.9, 3.2), face="w")
+        self._orb(IRON, (-25.5, 0.95, 0), (8, 1.35, 1.9), face="w")
+        self._orb(BRASS, (-29.4, 0.95, 0), (3.2, 0.9, 0.9), face="w")
+        self._orb(LAMP, (-31.2, 0.95, 0), 1.05, face="w")
+        self._orb(GOLD, (-32.0, 0.95, 0), 0.5, face="w")
+        self._box(BRASS_D, (-8.8, 7.2, 0), (9, 0.18, 12), rot=(0, 0, 11), face=("w", "ceil"))
+        self._box(COPPER, (-9.2, 5.5, 6.6), (0.18, 0.18, 9), rot=(0, 20, 9), face="n")
+        self._box(COPPER, (-9.2, 5.5, -6.6), (0.18, 0.18, 9), rot=(0, -20, -9), face="s")
+        for s in (-1, 1):
+            face = "n" if s > 0 else "s"
+            self._box(IRON, (-15, 0.85, s * (hz + 4.2)), (12, 0.22, 5.5), rot=(s * 8, s * 16, s * 5), face=face)
+            self._box(BRASS_D, (-12, 0.95, s * (hz + 6.5)), (7, 0.12, 3.2), rot=(s * 8, s * 18, 0), face=face)
+
+    def _ext_keel(self, length, hz):
+        self._orb(IRON, (18, -2.8, 0), (32, 3.2, 18))
+        self._orb(IRON_B, (48, -3.05, 0), (38, 3.5, 19))
+        self._orb(IRON, (76, -2.7, 0), (30, 3.0, 16))
+        self._box(BRASS_D, (length / 2, -3.6, 0), (length + 10, 0.28, 0.85))
+        self._box(COPPER, (length / 2, -3.1, 0), (length - 6, 0.12, 0.28))
+        for x in (16, 40, 64, 84):
+            self._orb(BRASS, (x, -3.85, 0), (2.1, 1.0, 2.1))
+        for s in (-1, 1):
+            face = "n" if s > 0 else "s"
+            x = 8.0
+            while x < length - 4:
+                self._orb(IRON, (x + 5, 6.6, s * (hz + 3.6)), (12, 3.0, 6.4), face=face)
+                self._orb(IRON_B, (x + 5, -0.05, s * (hz + 3.4)), (12, 1.7, 6.0), face=face)
+                x += 10.0
+            self._span_x(BRASS_D, 5.15, s * (hz + 0.55), 10.0, length - 10.0, 0.14, 0.2, face=face)
+        self._span_x(IRON, HULL_CEIL + 0.58, 0, -2.0, length + 6.0, 0.8, hz * 2 + 0.8, face="ceil", bay=10.0)
+        x = 4.0
+        while x < length:
+            self._orb(IRON, (x + 5, 10.6, 0), (14, 4.2, 28), face="ceil")
+            x += 10.0
+        self._orb(IRON, (60, 12.4, 0), (26, 4.8, 1.6), face="ceil")
+        self._box(IRON_B, (66, 13.2, 0), (20, 5.0, 0.4), rot=(0, 0, -11), face="ceil")
+        self._box(BRASS, (78, 16.2, 0), (0.22, 5.2, 0.22), face="ceil")
+        self._orb(LAMP, (78, 19.0, 0), 0.9)
+        self._box(COPPER, (42, 11.3, 7.5), (18, 0.1, 7), rot=(62, 0, 0), face="ceil")
+        self._box(COPPER, (42, 11.3, -7.5), (18, 0.1, 7), rot=(-62, 0, 0), face="ceil")
+
+    def _ext_wings(self, length, hz):
+        for side in (-1, 1):
+            s = float(side)
+            z0 = s * hz
+            face = "n" if s > 0 else "s"
+            self._orb(IRON, (48, 0.62, z0 + s * 11), (30, 0.62, 20), face=face)
+            self._orb(IRON_B, (64, 0.72, z0 + s * 22), (26, 0.48, 18), face=face)
+            self._orb(IRON, (78, 0.82, z0 + s * 32), (18, 0.36, 12), face=face)
+            self._box(IRON, (58, 0.68, z0 + s * 16), (36, 0.22, 14), rot=(s * 4, s * 24, s * 4), face=face)
+            self._box(BRASS_D, (70, 0.78, z0 + s * 26), (16, 0.1, 7), rot=(s * 3, s * 28, s * 3), face=face)
+            self._box(COPPER, (52, 0.9, z0 + s * 8), (22, 0.08, 3.5), rot=(0, s * 18, 0), face=face)
+            self._box(BRASS, (40, 0.95, z0 + s * 3.2), (0.22, 0.22, 8), face=face)
+            self._box(BRASS, (62, 0.95, z0 + s * 14), (0.2, 0.2, 12), face=face)
+            self._orb(IRON, (88, 0.95, z0 + s * 36), (3.4, 2.2, 2.6), face=face)
+            self._orb(BRASS, (89.2, 0.95, z0 + s * 36), 1.15, face=face)
+            self._orb(LAMP, (90.4, 0.95, z0 + s * 36), 0.85, face=face)
+            self._orb(GOLD, (91.0, 0.95, z0 + s * 36), 0.45, face=face)
+            for x in (22, 36, 52, 68):
+                self._orb(LAMP, (x, 0.38, z0 + s * 0.7), 0.22, face=face)
+
+    def _ext_engines(self, length, hz):
+        aft = length + 11
+        for z, y, size in ((0.0, 2.5, 1.05), (7.4, 1.5, 0.82), (-7.4, 1.5, 0.82), (0.0, 5.8, 0.72)):
+            k = size
+            self._orb(IRON, (aft - 3, y, z), (7.0 * k, 3.8 * k, 3.8 * k), face="e")
+            self._orb(IRON_B, (aft + 2.2, y, z), (3.8 * k, 4.4 * k, 4.4 * k), face="e")
+            self._box(BRASS, (aft + 1.0, y, z), (0.34, 4.6 * k, 4.6 * k), face="e")
+            self._box(COPPER, (aft + 2.6, y, z), (0.24, 3.7 * k, 3.7 * k), face="e")
+            self._orb(LAMP, (aft + 5.4, y, z), (2.6 * k, 3.4 * k, 3.4 * k), face="e")
+            self._orb(GOLD, (aft + 7.0, y, z), (1.8 * k, 2.4 * k, 2.4 * k), face="e")
+            self._orb(ACCENT, (aft + 8.2, y, z), (1.0 * k, 1.4 * k, 1.4 * k), face="e")
+        self._orb(IRON, (length + 6, 3.4, 0), (10, 6.4, 10), face="e")
+        self._box(BRASS_D, (length + 4.6, 7.2, 0), (8.5, 0.2, 8.5), face="e")
+        for ang in range(0, 360, 45):
+            r = 3.8
+            rz = math.sin(math.radians(ang)) * r
+            ry = 3.4 + math.cos(math.radians(ang)) * r
+            self._orb(BRASS, (length + 8.8, ry, rz), 0.5, face="e")
+
+    def _ext_skin(self, length, hz):
+        self._ext_nose(hz)
+        self._ext_keel(length, hz)
+        self._ext_wings(length, hz)
+        self._ext_engines(length, hz)
+
     def _ship(self, flags):
         from proto.config import HALL_HALF, SHIP_LEN
 
@@ -302,6 +455,7 @@ class World:
         self._west_viewport(hz)
         self._east_bulkhead(length, hz)
         self._ceiling(length, hz, wide)
+        self._ext_skin(length, hz)
         for x in range(8, int(length), 12):
             self._arch(x, IRON if (x // 12) % 2 == 0 else IRON_B)
         self._ship_props(length, hz)
@@ -356,13 +510,18 @@ class World:
             for n, start in enumerate(range(0, 140, 28))
         ]
         self._boot_steps = star_steps + [
-            ("VOID", lambda: self._star_props(length)),
+            ("VOID", lambda: self._deep_space()),
+            ("EARTH", lambda: self._ext_earth()),
             ("DECK", lambda: self._deck(length, hz, wide)),
             ("PORT", lambda: self._hull_side(length, -hz - 0.22, SHIP_ROSE, "s")),
             ("STARBOARD", lambda: self._hull_side(length, hz + 0.22, SHIP_WALL, "n")),
             ("VIEW", lambda: self._west_viewport(hz)),
             ("BULKHEAD", lambda: self._east_bulkhead(length, hz)),
             ("CEILING", lambda: self._ceiling(length, hz, wide)),
+            ("NOSE", lambda: self._ext_nose(hz)),
+            ("KEEL", lambda: self._ext_keel(length, hz)),
+            ("WINGS", lambda: self._ext_wings(length, hz)),
+            ("ENGINES", lambda: self._ext_engines(length, hz)),
             ("RIBS", lambda: [
                 self._arch(x, IRON if (x // 12) % 2 == 0 else IRON_B) for x in range(8, int(length), 12)
             ]),

@@ -1,4 +1,4 @@
-"""God-view camera: orbit/zoom freely, pan only when the player hits a screen edge."""
+"""God-view camera: orbit/zoom freely, pan when the player nears the cutaway rim."""
 
 from __future__ import annotations
 
@@ -160,54 +160,21 @@ class GodCam(Entity):
         return Vec2(full[0] / w * camera.aspect_ratio * 0.5, full[1] / w * 0.5)
 
     def _edge_follow(self, dt):
-        p = self.player.world_position + Vec3(0, 1.05, 0)
-        scr = self._project(p)
-        if scr is None:
-            self.look = Vec3(self.player.x, CAM_LOOK_Y, self.player.z)
+        from proto.world import _cut_radius
+
+        hole = _cut_radius(self.dist)
+        limit = max(2.2, hole * (1.0 - CAM_EDGE))
+        dx = self.player.x - self.look.x
+        dz = self.player.z - self.look.z
+        dist = math.sqrt(dx * dx + dz * dz)
+        if dist <= limit:
             return
-
-        lim_x = camera.aspect_ratio * CAM_EDGE
-        lim_y = CAM_EDGE
-        ox = 0.0
-        oy = 0.0
-        if scr.x < -lim_x:
-            ox = scr.x + lim_x
-        elif scr.x > lim_x:
-            ox = scr.x - lim_x
-        if scr.y < -lim_y:
-            oy = scr.y + lim_y
-        elif scr.y > lim_y:
-            oy = scr.y - lim_y
-
-        far = abs(scr.x) > camera.aspect_ratio * 0.55 or abs(scr.y) > 0.55
-        if ox == 0.0 and oy == 0.0 and not far:
+        if dist < 0.05:
             return
-        if far:
-            self.look = Vec3(self.player.x, CAM_LOOK_Y, self.player.z)
-            return
-
-        fov = math.radians(max(camera.fov, 1.0))
-        world_w = 2.0 * self.dist * math.tan(fov * 0.5)
-        per_x = world_w / max(camera.aspect_ratio, 0.1)
-        per_y = world_w / max(camera.aspect_ratio, 0.1)
-
-        right = Vec3(camera.right.x, 0, camera.right.z)
-        if right.length() > 0.05:
-            right = right.normalized()
-        else:
-            right = self.view_right()
-
-        up = Vec3(camera.up.x, 0, camera.up.z)
-        if up.length() < 0.08:
-            up = Vec3(-camera.forward.x, 0, -camera.forward.z)
-        if up.length() > 0.05:
-            up = up.normalized()
-        else:
-            up = self.view_forward()
-
-        k = 1.0 if far else min(1.0, dt * 9)
-        self.look += right * ox * per_x * k
-        self.look += up * oy * per_y * k
+        extra = dist - limit
+        step = extra if dist > hole * 0.92 else extra * min(1.0, dt * 14)
+        self.look.x += (dx / dist) * step
+        self.look.z += (dz / dist) * step
         self.look.y = CAM_LOOK_Y
 
     def _apply(self):
@@ -228,23 +195,4 @@ class GodCam(Entity):
         camera.rotation_x = -math.degrees(math.atan2(offset.y, max(ground, 0.05)))
         camera.rotation_y = math.degrees(math.atan2(offset.x, offset.z))
         camera.rotation_z = 0
-        self.world.set_hull_hidden(self._hide_faces(pos))
-
-    def _hide_faces(self, pos):
-        if self.world.map_name != "ship":
-            return None
-        off = pos - self.look
-        xz = math.sqrt(off.x * off.x + off.z * off.z)
-        # Side views cut near walls; straight-down keeps the walls.
-        t = (self.pitch - 74.0) / (48.0 - 74.0)
-        t = max(0.0, min(1.0, t))
-        wall_cut = t * t * (3.0 - 2.0 * t)
-        slack = max(2.8, xz * 0.34)
-        cut = wall_cut > 0.18
-        return {
-            "n": cut and off.z > slack,
-            "s": cut and off.z < -slack,
-            "e": cut and off.x > slack,
-            "w": cut and off.x < -slack,
-            "ceil": True,
-        }
+        self.world.apply_cutaway(pos, self.look, self.dist)

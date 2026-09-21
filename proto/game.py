@@ -112,10 +112,11 @@ class Game(Entity):
             typed=self.typed,
             builder=self.builder if self.state.mode == "build" else None,
         )
+        far = bool(self.cam and self.cam.dist > 48)
         self.ui.sync_names(
             self.world.npcs,
             self.cam,
-            visible=self.state.mode not in ("title", "fade"),
+            visible=self.state.mode not in ("title", "fade") and not far,
         )
         if self.state.mode == "fade":
             self.fade_veil.enabled = True

@@ -1,5 +1,13 @@
 # Underscore log
 
+- Ship exterior is a vessel now: swept wings, keel, nose, glowing engines, distant Earth.
+- Cabin cutaway stays on at any zoom: the near wall/wing/roof drop so the player stays visible. Earth and the keel do not.
+- Cutaway is only the slice you look through, around the player. Far wing, nose, and the rest of the hull stay up.
+- That hole grows as you zoom out.
+- Camera pans when the player is near the cutaway rim, so they stay in the hole.
+- Cabin cutaway is a circular hole through the hull, not missing blocks. Follow starts at 25% in from that ring.
+- The hole is a circle in the middle of the screen.
+
 - Names are screen labels now (no black world boxes). Loader paints for real while the hall builds in slices.
 
 - Pad reset moved to X (and an X RESET tray button) because R is rotate.

@@ -28,6 +28,37 @@ void main() {
 """,
 )
 
+HULL = Shader(
+    name="underscore_hull",
+    language=Shader.GLSL,
+    vertex="""#version 150
+uniform mat4 p3d_ModelViewProjectionMatrix;
+in vec4 p3d_Vertex;
+out vec4 vclip;
+void main() {
+    vclip = p3d_ModelViewProjectionMatrix * p3d_Vertex;
+    gl_Position = vclip;
+}
+""",
+    fragment="""#version 150
+uniform vec4 p3d_ColorScale;
+uniform float cut_ndc;
+uniform float cut_aspect;
+in vec4 vclip;
+out vec4 fragColor;
+void main() {
+    if (cut_ndc > 0.02 && vclip.w > 0.08) {
+        vec2 ndc = vclip.xy / vclip.w;
+        vec2 p = vec2(ndc.x * cut_aspect, ndc.y);
+        if (dot(p, p) < cut_ndc * cut_ndc) {
+            discard;
+        }
+    }
+    fragColor = p3d_ColorScale;
+}
+""",
+)
+
 
 _ambient = None
 _sun = None
@@ -75,9 +106,13 @@ def paint(col):
     return rgb(col)
 
 
-def solid(col, **kwargs):
+def solid(col, hull=False, **kwargs):
     """Always-visible mesh: vertex color, no texture sample."""
     kwargs.pop("texture", None)
-    kwargs["shader"] = COLOR
+    kwargs["shader"] = HULL if hull else COLOR
     kwargs["color"] = paint(col)
-    return Entity(**kwargs)
+    e = Entity(**kwargs)
+    if hull:
+        e.set_shader_input("cut_ndc", 0.0)
+        e.set_shader_input("cut_aspect", 1.6)
+    return e
