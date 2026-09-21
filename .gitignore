@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+underscore_save.json
+proto/_shots/
+proto/_playtest.py
+proto/_iso.py
