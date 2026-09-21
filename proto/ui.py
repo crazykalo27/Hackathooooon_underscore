@@ -1,4 +1,4 @@
-"""Title, HUD, dialogue, and a brass-framed iron build overlay."""
+"""Title, HUD, dialogue, and a cyan-framed void build overlay."""
 
 from __future__ import annotations
 
@@ -24,8 +24,8 @@ from proto.config import (
     rgb,
 )
 
-WELL = (28, 22, 18)
-PIP_OFF = (86, 72, 60)
+WELL = (10, 14, 26)
+PIP_OFF = (42, 58, 82)
 CREAM_UI = PAPER
 _SHARP = False
 
@@ -40,12 +40,7 @@ def _sharpen(text_entity):
     if font is None:
         return
     try:
-        from panda3d.core import Texture
-
-        nearest = getattr(Texture, "FT_nearest", None) or getattr(Texture, "FTNearest")
-        font.setMagfilter(nearest)
-        font.setMinfilter(nearest)
-        font.setPixelsPerUnit(16)
+        font.setPixelsPerUnit(72)
         _SHARP = True
     except Exception:
         pass
@@ -61,7 +56,7 @@ def _quad(col, **kw):
     return Entity(**kw)
 
 
-def _ink(text, x, y, scale=0.85, col=CREAM_UI, origin=(-0.5, 0.5), parent=None, **kw):
+def _ink(text, x, y, scale=1.05, col=CREAM_UI, origin=(-0.5, 0.5), parent=None, **kw):
     kw.setdefault("parent", parent or camera.ui)
     t = Text(
         font=FONT,
@@ -72,7 +67,7 @@ def _ink(text, x, y, scale=0.85, col=CREAM_UI, origin=(-0.5, 0.5), parent=None, 
         origin=origin,
         scale=scale,
         color=rgb(col),
-        line_height=0.95,
+        line_height=1.08,
         **kw,
     )
     if not _SHARP:
@@ -122,7 +117,7 @@ def _enable(items, on):
 
 
 def _pixel_frame(items, x, y, w, h, pips=True):
-    """Iron plate, brass rivets and L-corners — same language as the hull."""
+    """Void plate, cyan rivets and L-corners — same language as the hull."""
     items.append(_quad(SHADOW, scale=(w + 0.018, h + 0.018), x=x, y=y, z=2))
     items.append(_quad(IRON, scale=(w, h), x=x, y=y, z=1.6))
     items.append(_quad(WELL, scale=(w - 0.024, h - 0.024), x=x, y=y, z=1.4))
@@ -187,6 +182,8 @@ class BuildMenu:
             action = getattr(e, "action", None)
             if action == "kind":
                 builder.kind = e.value
+                builder.yaw = 0
+                builder.flipped = False
                 builder._ghost()
                 return True
             if action == "mat":
@@ -198,6 +195,9 @@ class BuildMenu:
             if action == "undo":
                 builder.delete_last()
                 return True
+            if action == "reset":
+                builder.reset(flags)
+                return True
         return False
 
     def present(self, builder, flags):
@@ -206,7 +206,7 @@ class BuildMenu:
         sig = (kinds, mats, builder.kind, builder.material, builder.goal_done, builder.zone.key if builder.zone else "")
         if sig == self._sig and self.enabled:
             if self.status:
-                self.status.text = _fit(builder.message, 22, 2)
+                self.status.text = _fit(builder.message, 20, 2)
             if self._led:
                 on = int(wall.time() * 2.4) % 2 == 0
                 self._led.color = rgb(LAMP if on else PIP_OFF)
@@ -226,13 +226,13 @@ class BuildMenu:
 
         kind_rows = max(1, (len(kinds) + 1) // 2)
         mat_rows = max(1, (len(mats) + 1) // 2)
-        h = min(0.82, 0.44 + (kind_rows + mat_rows) * 0.048)
-        w = 0.36
+        h = min(0.90, 0.56 + (kind_rows + mat_rows) * 0.054)
+        w = 0.38
         x = _half_w() - w * 0.5 - 0.02
         y = 0.01
         left, right, top, bottom = _pixel_frame(self.items, x, y, w, h)
 
-        self.items.append(_ink("SEEDED  BUILD", left, top, 0.92, LAMP))
+        self.items.append(_ink("SEEDED  BUILD", left, top, 1.12, LAMP))
         led_y = top - 0.008
         self._led = _quad(LAMP, scale=(0.012, 0.012), x=right - 0.048, y=led_y, z=0.5)
         self.items.append(self._led)
@@ -241,17 +241,17 @@ class BuildMenu:
 
         zone = (builder.zone.key if builder.zone else "bay").upper()
         yy = top - 0.030
-        self.items.append(_ink(f"BAY  ·  {zone}", left, yy, 0.78, PATINA))
+        self.items.append(_ink(f"BAY  ·  {zone}", left, yy, 0.98, PATINA))
 
         inner = right - left
         gap = 0.010
         cw = (inner - gap) * 0.5
-        ch = 0.038
+        ch = 0.046
         xs = (left + cw * 0.5, left + cw + gap + cw * 0.5)
 
         yy -= 0.028
         self.items.append(_quad(BRASS, scale=(0.010, 0.010), x=left + 0.005, y=yy - 0.006, z=0.5))
-        self.items.append(_ink("PART", left + 0.018, yy, 0.72, MUTED))
+        self.items.append(_ink("PART", left + 0.018, yy, 0.9, MUTED))
         yy -= 0.018 + ch * 0.5
         for i, kind in enumerate(kinds):
             on = kind == builder.kind
@@ -259,12 +259,12 @@ class BuildMenu:
             by = yy - (i // 2) * (ch + 0.008)
             _bevel_btn(ACCENT if on else IRON_B, bx, by, cw, ch, "kind", kind, self.items)
             self.items.append(
-                _ink(kind.upper(), bx - cw * 0.5 + 0.012, by, 0.72, CREAM_UI if on else (210, 190, 168), origin=(-0.5, 0))
+                _ink(kind.upper(), bx - cw * 0.5 + 0.012, by, 0.92, CREAM_UI if on else (210, 190, 168), origin=(-0.5, 0))
             )
         yy = yy - (kind_rows - 1) * (ch + 0.008) - ch * 0.5 - 0.016
 
         self.items.append(_quad(GOLD, scale=(0.010, 0.010), x=left + 0.005, y=yy - 0.006, z=0.5))
-        self.items.append(_ink("MAT", left + 0.018, yy, 0.72, MUTED))
+        self.items.append(_ink("MAT", left + 0.018, yy, 0.9, MUTED))
         yy -= 0.018 + ch * 0.5
         for i, mat in enumerate(mats):
             on = mat == builder.material
@@ -274,20 +274,25 @@ class BuildMenu:
             _bevel_btn(IRON_B if not on else _lift(swatch, -30), bx, by, cw, ch, "mat", mat, self.items)
             self.items.append(_quad(swatch, scale=(0.016, 0.022), x=bx - cw * 0.5 + 0.016, y=by, z=0.4))
             self.items.append(
-                _ink(f"{i + 1} {mat.upper()}", bx - cw * 0.5 + 0.030, by, 0.7, CREAM_UI, origin=(-0.5, 0))
+                _ink(f"{i + 1} {mat.upper()}", bx - cw * 0.5 + 0.030, by, 0.9, CREAM_UI, origin=(-0.5, 0))
             )
         yy = yy - (mat_rows - 1) * (ch + 0.008) - ch * 0.5 - 0.014
 
-        act_h = 0.040
-        for action, caption, col in (("test", "T  TEST", PATINA), ("undo", "RMB  UNDO", (90, 78, 70))):
+        act_h = 0.048
+        for action, caption, col in (
+            ("test", "T  TEST", PATINA),
+            ("undo", "RMB  UNDO", (46, 58, 82)),
+            ("reset", "X  RESET", (72, 48, 58)),
+        ):
             _bevel_btn(col, x, yy, inner, act_h, action, action, self.items)
-            self.items.append(_ink(caption, x, yy, 0.78, CREAM_UI, origin=(0, 0)))
+            self.items.append(_ink(caption, x, yy, 0.98, CREAM_UI, origin=(0, 0)))
             yy -= act_h + 0.010
 
         ready = builder.goal_done
         stamp = "ENTER  STAMP" if ready else "CLICK TO PLACE"
-        self.items.append(_ink(stamp, x, bottom + 0.048, 0.78, GOLD if ready else CREAM_UI, origin=(0, 0.5)))
-        self.status = _ink(_fit(builder.message, 22, 2), x, bottom + 0.008, 0.68, MUTED, origin=(0, 0.5))
+        self.items.append(_ink("R ROTATE  F FLIP  X RESET", x, bottom + 0.078, 0.78, MUTED, origin=(0, 0.5)))
+        self.items.append(_ink(stamp, x, bottom + 0.048, 0.98, GOLD if ready else CREAM_UI, origin=(0, 0.5)))
+        self.status = _ink(_fit(builder.message, 20, 2), x, bottom + 0.008, 0.86, MUTED, origin=(0, 0.5))
         self.enabled = True
         _enable(self.items, True)
         self.status.enabled = True
@@ -310,51 +315,52 @@ class UI:
         self.build_bar = None
         self.build_menu = BuildMenu()
         self.help = None
+        self.name_slots = []
         self._build()
 
     def _build(self):
         hw = _half_w()
-        hud_w, hud_h = 0.52, 0.192
+        hud_w, hud_h = 0.56, 0.22
         hud_x = -hw + hud_w * 0.5 + 0.026
         hud_y = 0.5 - hud_h * 0.5 - 0.016
         self._hud_box = _pixel_frame(self.hud_chrome, hud_x, hud_y, hud_w, hud_h)
         left, right, top, _bottom = self._hud_box
-        self.hud_meta = _ink("", left, top, 0.88, LAMP)
-        self.hud_obj = _ink("", left, top - 0.032, 0.84, CREAM_UI)
+        self.hud_meta = _ink("", left, top, 1.15, LAMP)
+        self.hud_obj = _ink("", left, top - 0.042, 1.1, CREAM_UI)
         self._hud = self.hud_chrome + [self.hud_meta, self.hud_obj]
 
-        ban_h = 0.114
+        ban_h = 0.128
         ban_y = hud_y - hud_h * 0.5 - ban_h * 0.5 - 0.012
         self._ban_box = _pixel_frame(self.banner_chrome, hud_x, ban_y, hud_w, ban_h, pips=False)
         bl, _br, bt, _bb = self._ban_box
-        self.banner = _ink("", bl, bt - 0.004, 0.8, LAMP)
+        self.banner = _ink("", bl, bt - 0.004, 1.05, LAMP)
         _enable(self.banner_chrome + [self.banner], False)
 
         talk_w = min(1.20, hw * 2 - 0.10)
-        talk_h = 0.228
+        talk_h = 0.26
         talk_y = -0.5 + talk_h * 0.5 + 0.022
         self._talk_box = _pixel_frame(self.talk_chrome, 0, talk_y, talk_w, talk_h)
         tl, tr, tt, tb = self._talk_box
-        self.talk_sp = _ink("", tl, tt, 0.95, LAMP)
-        self.talk_tx = _ink("", tl, tt - 0.034, 0.88, CREAM_UI)
-        self.talk_hint = _ink("E  CONTINUE", tr, tb + 0.004, 0.68, MUTED, origin=(0.5, 0))
+        self.talk_sp = _ink("", tl, tt, 1.22, LAMP)
+        self.talk_tx = _ink("", tl, tt - 0.046, 1.12, CREAM_UI)
+        self.talk_hint = _ink("E  CONTINUE", tr, tb + 0.006, 0.9, MUTED, origin=(0.5, 0))
         self._talk = self.talk_chrome + [self.talk_sp, self.talk_tx, self.talk_hint]
         _enable(self._talk, False)
 
-        prompt_w, prompt_h = 0.64, 0.096
+        prompt_w, prompt_h = 0.72, 0.112
         prompt_y = -0.5 + prompt_h * 0.5 + 0.028
         self._prompt_box = _pixel_frame(self.prompt_chrome, 0, prompt_y, prompt_w, prompt_h, pips=False)
         pl, _pr, pt, _pb = self._prompt_box
-        self.prompt = _ink("", 0, pt - 0.018, 0.92, LAMP, origin=(0, 0.5))
+        self.prompt = _ink("", 0, pt - 0.022, 1.18, LAMP, origin=(0, 0.5))
         self._prompt = self.prompt_chrome + [self.prompt]
         _enable(self._prompt, False)
 
         self.build_bar = None
         self.title_bits = []
-        _tl, _tr, tt, _tb = _pixel_frame(self.title_bits, 0, 0.34, 0.70, 0.22)
-        self.title_bits.append(_ink("SEEDED PROGRAM", 0, tt - 0.004, 0.78, LAMP, origin=(0, 0.5)))
-        self.title_bits.append(_ink("UNDERSCORE", 0, tt - 0.064, 1.18, CREAM_UI, origin=(0, 0.5)))
-        self.title_bits.append(_ink("ENTER TO WAKE", 0, tt - 0.122, 0.8, MUTED, origin=(0, 0.5)))
+        _tl, _tr, tt, _tb = _pixel_frame(self.title_bits, 0, 0.34, 0.76, 0.26)
+        self.title_bits.append(_ink("SEEDED PROGRAM", 0, tt - 0.008, 0.98, LAMP, origin=(0, 0.5)))
+        self.title_bits.append(_ink("UNDERSCORE", 0, tt - 0.078, 1.42, CREAM_UI, origin=(0, 0.5)))
+        self.title_bits.append(_ink("ENTER TO WAKE", 0, tt - 0.148, 1.02, MUTED, origin=(0, 0.5)))
 
     def show_title(self, on):
         _enable(self.title_bits, on)
@@ -364,6 +370,7 @@ class UI:
             _enable(self.banner_chrome + [self.banner], False)
             _enable(self._talk, False)
             self.build_menu.hide()
+            self.sync_names([], None, False)
 
     def refresh(self, state, near_npc=None, near_zone=None, dialogue=None, d_i=0, typed=0, builder=None):
         if state.mode == "title":
@@ -373,12 +380,12 @@ class UI:
         loc = {"ship": "SHIP · ACADEMY", "earth": "EARTH · C1", "c2": "EARTH · C2"}.get(state.map_name, state.map_name)
         hour = 6 + int((state.day_clock / 90) * 16)
         self.hud_meta.text = _safe(f"{loc}   DAY {state.day}  {hour:02d}h   {state.money()}c")
-        self.hud_obj.text = _fit(story.objective(state.flags), 32, 2)
+        self.hud_obj.text = _fit(story.objective(state.flags), 26, 2)
 
         show_banner = state.banner_t > 0 and state.banner and state.mode != "talk"
         _enable(self.banner_chrome + [self.banner], show_banner)
         if show_banner:
-            self.banner.text = _fit(state.banner, 34, 2)
+            self.banner.text = _fit(state.banner, 28, 2)
 
         talking = state.mode == "talk" and dialogue and d_i < len(dialogue)
         if talking:
@@ -387,7 +394,7 @@ class UI:
             sp, tx = dialogue[d_i]
             self.talk_sp.text = _safe(sp.upper())
             shown = tx[: int(typed)]
-            body = _wrap(shown, 52)
+            body = _wrap(shown, 42)
             if int(typed) < len(tx) and int(wall.time() * 2.6) % 2 == 0:
                 body += "#"
             self.talk_tx.text = body or " "
@@ -407,6 +414,33 @@ class UI:
         else:
             self.build_menu.hide()
 
+    def sync_names(self, npcs, cam, visible=True):
+        from ursina import Vec3
+
+        if not visible or cam is None:
+            for slot in self.name_slots:
+                slot["label"].enabled = False
+            return
+        while len(self.name_slots) < len(npcs):
+            label = _ink(" ", 0, 0, 1.45, PAPER, origin=(0, 0))
+            label.z = 0.35
+            self.name_slots.append({"label": label})
+        for i, npc in enumerate(npcs):
+            slot = self.name_slots[i]
+            pos = npc.world_position
+            head = Vec3(pos.x, pos.y + 1.95, pos.z)
+            scr = cam._project(head)
+            if scr is None:
+                slot["label"].enabled = False
+                continue
+            name = (getattr(npc, "npc_name", "") or "").upper()
+            slot["label"].enabled = True
+            slot["label"].text = name or " "
+            slot["label"].x = scr.x
+            slot["label"].y = scr.y + 0.045
+        for j in range(len(npcs), len(self.name_slots)):
+            self.name_slots[j]["label"].enabled = False
+
     def toggle_help(self):
         if self.help and self.help.enabled:
             self.help.enabled = False
@@ -414,17 +448,17 @@ class UI:
         if not self.help:
             self.help = Entity(parent=camera.ui)
             bits = []
-            left, right, top, _bottom = _pixel_frame(bits, 0, 0, 0.64, 0.36)
+            left, right, top, _bottom = _pixel_frame(bits, 0, 0, 0.72, 0.40)
             for e in bits:
                 e.parent = self.help
             lines = (
-                "WASD walk · drag orbit · scroll zoom",
+                "WASD walk · arrows pan · drag orbit · scroll zoom",
                 "E talk · B build on a glowing pad",
-                "Build: A/D orbit · W/S zoom · scroll tilt",
-                "T test · Enter stamp · RMB undo",
+                "Build: R spin part · F stand or lay · T test",
+                "X reset pad · Enter stamp · RMB click undo",
             )
             y = top - 0.008
             for line in lines:
-                _ink(line, 0, y, 0.82, CREAM_UI, origin=(0, 0.5), parent=self.help)
-                y -= 0.055
+                _ink(line, 0, y, 1.02, CREAM_UI, origin=(0, 0.5), parent=self.help)
+                y -= 0.062
         self.help.enabled = True

@@ -23,6 +23,7 @@ python3 -m venv .venv
 | Key | |
 | --- | --- |
 | WASD | walk (camera-relative) |
+| Arrows | pan the camera; in build, rotate |
 | Drag | orbit. Build: right-drag (left click places) |
 | Scroll | zoom |
 | Mouse | Esc locks for clickless orbit |

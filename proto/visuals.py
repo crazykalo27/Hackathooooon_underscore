@@ -40,7 +40,7 @@ def apply():
     from ursina import Text
 
     Text.default_font = FONT
-    Text.default_resolution = 16
+    Text.default_resolution = 72
 
     window.color = color.rgb(*SKY)
     window.fullscreen = False
@@ -51,19 +51,19 @@ def apply():
         camera.overlay.enabled = False
         camera.overlay.scale = 0
         camera.overlay.color = color.clear
-    _ambient = AmbientLight(color=color.rgb(118, 100, 86))
-    _sun = DirectionalLight(rotation=(42, -28, 0), color=color.rgb(255, 186, 132))
+    _ambient = AmbientLight(color=color.rgb(72, 104, 148))
+    _sun = DirectionalLight(rotation=(42, -28, 0), color=color.rgb(186, 214, 255))
 
 
 def mood(map_name):
     if _ambient is None:
         return
     if map_name == "ship":
-        _ambient.color = color.rgb(108, 90, 76)
-        _sun.color = color.rgb(255, 176, 122)
+        _ambient.color = color.rgb(72, 104, 148)
+        _sun.color = color.rgb(186, 214, 255)
     else:
-        _ambient.color = color.rgb(200, 188, 170)
-        _sun.color = color.rgb(255, 232, 204)
+        _ambient.color = color.rgb(168, 196, 224)
+        _sun.color = color.rgb(255, 236, 214)
 
 
 def paint(col):

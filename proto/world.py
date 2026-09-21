@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ursina import Entity, Text, Vec3, destroy, scene
+from ursina import Entity, Vec3, destroy, scene
 
 from proto import story
 from proto.config import (
@@ -13,12 +13,10 @@ from proto.config import (
     EARTH_CLIFF,
     EARTH_DIRT,
     EARTH_SAND,
-    FONT,
     GOLD,
     IRON,
     IRON_B,
     LAMP,
-    PAPER,
     PATINA,
     SHADOW,
     SHIP_FLOOR,
@@ -30,7 +28,6 @@ from proto.config import (
     STAR_DIM,
     TEAL,
     HULL_CEIL,
-    rgb,
 )
 from proto.figure import attach, shade
 from proto.visuals import mood, solid
@@ -103,14 +100,14 @@ class World:
         self._box(BRASS, (x, 7.12, 0), (0.9, 0.12, HALL_HALF * 2 - 0.5), face="ceil")
         self._box(BRASS, (x, 0.1, 0), (0.55, 0.14, HALL_HALF * 2 - 1.4))
 
-    def _starfield(self, length):
+    def _starfield(self, length, start=0, count=140):
         import random
 
         from proto.config import HALL_HALF
 
         hz = HALL_HALF
         rng = random.Random(21)
-        for _ in range(140):
+        for i in range(start + count):
             side = rng.choice(("n", "s", "up", "w", "e"))
             if side == "n":
                 pos = (rng.uniform(-10, length + 10), rng.uniform(0.4, 14), rng.uniform(hz + 6, hz + 32))
@@ -123,7 +120,15 @@ class World:
             else:
                 pos = (rng.uniform(length + 8, length + 30), rng.uniform(0.2, 16), rng.uniform(-(hz + 6), hz + 6))
             s = rng.choice((0.07, 0.09, 0.12, 0.16, 0.22, 0.34))
-            self._box(STAR if rng.random() > 0.28 else STAR_DIM, pos, (s, s, s))
+            col = STAR if rng.random() > 0.28 else STAR_DIM
+            if i < start:
+                continue
+            self._box(col, pos, (s, s, s))
+
+    def _star_props(self, length):
+        from proto.config import HALL_HALF
+
+        hz = HALL_HALF
         self._box(COPPER, (26, 6.2, -(hz + 12)), (5.6, 5.6, 5.6))
         self._box(PATINA, (60, 8.0, hz + 14), (2.5, 2.5, 2.5))
         self._box(BRASS, (10, 11.0, hz + 10), (1.3, 1.3, 1.3))
@@ -261,28 +266,8 @@ class World:
         root.npc_id = defn.id
         root.npc_name = defn.name
         root.talk_id = defn.talk
-        self._name_tag(root, defn.name)
         self.npcs.append(root)
         return root
-
-    def _name_tag(self, root, name):
-        holder = Entity(parent=root, y=2.08)
-        holder.world_rotation = Vec3(0, 0, 0)
-        holder.billboard = True
-        w = max(0.58, 0.10 * len(name) + 0.22)
-        solid(SHADOW, parent=holder, model="quad", scale=(w + 0.08, 0.20), z=0.04)
-        solid((28, 22, 18), parent=holder, model="quad", scale=(w, 0.14), z=0.03)
-        solid(BRASS, parent=holder, model="quad", scale=(w * 0.86, 0.016), y=0.048, z=0.02)
-        Text(
-            font=FONT,
-            use_tags=False,
-            text=name.upper(),
-            parent=holder,
-            origin=(0, 0),
-            y=-0.008,
-            scale=3.6,
-            color=rgb(PAPER),
-        )
 
     def _pad(self, zone):
         if zone.gap:
@@ -310,6 +295,7 @@ class World:
         hz = HALL_HALF
         wide = hz * 2 + 0.8
         self._starfield(length)
+        self._star_props(length)
         self._deck(length, hz, wide)
         self._hull_side(length, -hz - 0.22, SHIP_ROSE, "s")
         self._hull_side(length, hz + 0.22, SHIP_WALL, "n")
@@ -318,6 +304,12 @@ class World:
         self._ceiling(length, hz, wide)
         for x in range(8, int(length), 12):
             self._arch(x, IRON if (x // 12) % 2 == 0 else IRON_B)
+        self._ship_props(length, hz)
+        for z in story.SHIP_ZONES:
+            self._pad(z)
+        self._ship_people(flags)
+
+    def _ship_props(self, length, hz):
         self._box(IRON, (3.2, 0.28, -2.2), (3.3, 0.4, 2.1), collider="box")
         self._box(BRASS, (1.7, 0.7, -2.9), (0.22, 1.1, 0.22))
         self._box(BRASS, (4.7, 0.7, -1.5), (0.22, 1.1, 0.22))
@@ -334,14 +326,67 @@ class World:
         self._box(BRASS, (ex, 2.4, 0), (2.5, 0.18, 2.5))
         self._box(COPPER, (ex, 3.2, 0), (1.1, 1.4, 1.1))
         self._box(LAMP, (ex, 4.0, 0), (0.45, 0.25, 0.45))
-        for z in story.SHIP_ZONES:
-            self._pad(z)
+
+    def _ship_people(self, flags):
         for n in story.SHIP_NPCS:
             if n.show_if and not flags.get(n.show_if):
                 continue
             if n.hide_if and flags.get(n.hide_if):
                 continue
             self._person(n)
+
+    def begin_boot_load(self, flags):
+        from ursina import color, window
+
+        from proto.config import HALL_HALF, SHIP_LEN
+
+        self.clear()
+        self.map_name = "ship"
+        scene.fog_density = 0
+        window.color = color.rgb(*SPACE)
+        mood("ship")
+        length = SHIP_LEN
+        hz = HALL_HALF
+        wide = hz * 2 + 0.8
+        self._boot_i = 0
+        self.load_status = "STARS"
+        self.load_frac = 0.0
+        star_steps = [
+            (f"STARS {n + 1}", lambda start=start: self._starfield(length, start=start, count=28))
+            for n, start in enumerate(range(0, 140, 28))
+        ]
+        self._boot_steps = star_steps + [
+            ("VOID", lambda: self._star_props(length)),
+            ("DECK", lambda: self._deck(length, hz, wide)),
+            ("PORT", lambda: self._hull_side(length, -hz - 0.22, SHIP_ROSE, "s")),
+            ("STARBOARD", lambda: self._hull_side(length, hz + 0.22, SHIP_WALL, "n")),
+            ("VIEW", lambda: self._west_viewport(hz)),
+            ("BULKHEAD", lambda: self._east_bulkhead(length, hz)),
+            ("CEILING", lambda: self._ceiling(length, hz, wide)),
+            ("RIBS", lambda: [
+                self._arch(x, IRON if (x // 12) % 2 == 0 else IRON_B) for x in range(8, int(length), 12)
+            ]),
+            ("BUNKS", lambda: self._ship_props(length, hz)),
+            ("PADS", lambda: [self._pad(z) for z in story.SHIP_ZONES]),
+            ("CREW", lambda: self._ship_people(flags)),
+        ]
+
+    def peek_boot_load(self):
+        if not getattr(self, "_boot_steps", None):
+            return None
+        if self._boot_i >= len(self._boot_steps):
+            return None
+        return self._boot_steps[self._boot_i][0]
+
+    def step_boot_load(self):
+        if self._boot_i >= len(self._boot_steps):
+            return False
+        name, fn = self._boot_steps[self._boot_i]
+        self.load_status = name
+        fn()
+        self._boot_i += 1
+        self.load_frac = self._boot_i / max(1, len(self._boot_steps))
+        return self._boot_i < len(self._boot_steps)
 
     def _earth(self, flags):
         from proto.config import EARTH_LEN

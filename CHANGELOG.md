@@ -1,5 +1,17 @@
 # Underscore log
 
+- Names are screen labels now (no black world boxes). Loader paints for real while the hall builds in slices.
+
+- Pad reset moved to X (and an X RESET tray button) because R is rotate.
+
+- Name tags sit above people, stay upright, turn with the camera, and scale so they stay readable.
+
+- Build: R spins the held part 90 degrees, F tips it onto the axis R cannot reach.
+
+- UI type is Pixelify Sans, larger and less crunchy than the 5-pixel face.
+
+- Arrow keys pan the god-view; in build they orbit the pad.
+- Hull and UI shifted off brass/iron to void navy, cyan trim, and ice lights.
 - HUD, talk, and build text sit on iron/brass plates with a pixel font — no more overlapping labels or floating type.
 - Build uses that same camera — no more hull-clamped pad orbit.
 - Proto rewritten into compartments: app, game, player, world, builder, story, state, ui, visuals.

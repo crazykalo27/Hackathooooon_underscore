@@ -3,27 +3,28 @@
 from pathlib import Path
 
 TITLE = "UNDERSCORE"
-_FONT = Path(__file__).resolve().parent / "fonts" / "Tiny5-Regular.ttf"
-FONT = str(_FONT) if _FONT.exists() else "VeraMono.ttf"
+_FONT = Path(__file__).resolve().parent / "fonts" / "PixelifySans-Regular.ttf"
+_FONT_FALLBACK = Path(__file__).resolve().parent / "fonts" / "Tiny5-Regular.ttf"
+FONT = str(_FONT if _FONT.exists() else (_FONT_FALLBACK if _FONT_FALLBACK.exists() else "VeraMono.ttf"))
 DAY_LEN = 90.0
 TALK_RANGE = 3.0
 MOVE_SPEED = 7.0
 
-# Steampunk hull: iron, brass, copper, lamp-warm. Pads keep their own colors.
-INK = (48, 36, 32)
-PAPER = (236, 220, 196)
-MUTED = (148, 124, 108)
-ACCENT = (196, 78, 58)
-GOLD = (196, 142, 64)
-TEAL = (64, 128, 118)
-STEEL = (176, 188, 204)
-BRASS = (176, 128, 58)
-BRASS_D = (132, 92, 44)
-IRON = (62, 52, 46)
-IRON_B = (78, 66, 56)
-COPPER = (148, 82, 54)
-PATINA = (58, 108, 98)
-LAMP = (232, 156, 72)
+# Space-age hull: void navy, cyan trim, ice lights. Pads keep their own colors.
+INK = (22, 28, 42)
+PAPER = (228, 240, 252)
+MUTED = (122, 148, 174)
+ACCENT = (240, 88, 102)
+GOLD = (255, 206, 96)
+TEAL = (64, 210, 214)
+STEEL = (168, 196, 224)
+BRASS = (96, 206, 236)
+BRASS_D = (48, 118, 158)
+IRON = (32, 44, 68)
+IRON_B = (44, 60, 88)
+COPPER = (78, 128, 196)
+PATINA = (48, 196, 176)
+LAMP = (160, 228, 255)
 WOOD = (214, 154, 106)
 STICKY = (214, 110, 168)
 ICY = (150, 210, 230)
@@ -31,20 +32,20 @@ BOUNCY = (232, 132, 96)
 HYDRO = (96, 176, 220)
 CIRCUIT = (120, 196, 148)
 STRUCT = (232, 176, 96)
-SKY = (186, 214, 228)
-SPACE = (8, 10, 18)
-STAR = (236, 232, 220)
-STAR_DIM = (148, 164, 198)
-SHIP_FLOOR = (58, 50, 44)
-SHIP_FLOOR_B = (72, 62, 54)
-SHIP_WALL = (68, 58, 52)
-SHIP_ROSE = (86, 54, 48)
-CREAM = (250, 240, 226)
-PEACH = (236, 196, 168)
+SKY = (168, 206, 236)
+SPACE = (6, 10, 22)
+STAR = (236, 244, 255)
+STAR_DIM = (120, 156, 210)
+SHIP_FLOOR = (18, 26, 42)
+SHIP_FLOOR_B = (26, 38, 58)
+SHIP_WALL = (36, 50, 78)
+SHIP_ROSE = (42, 56, 92)
+CREAM = (236, 246, 255)
+PEACH = (236, 196, 176)
 EARTH_DIRT = (214, 154, 106)
 EARTH_SAND = (236, 196, 140)
 EARTH_CLIFF = (196, 124, 88)
-SHADOW = (42, 36, 32)
+SHADOW = (10, 14, 24)
 
 MATERIALS = {
     "wood": WOOD,

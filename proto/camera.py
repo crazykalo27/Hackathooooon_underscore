@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from ursina import Entity, Vec2, Vec3, Vec4, camera, mouse, scene, time
+from ursina import Entity, Vec2, Vec3, Vec4, camera, held_keys, mouse, scene, time
 
 from proto.config import (
     CAM_DIST,
@@ -101,6 +101,7 @@ class GodCam(Entity):
         dt = time.dt if time.dt > 0 else 0.016
         if not self.frozen:
             self._orbit()
+            self._arrows(dt)
             self._zoom_step(dt)
         self._apply()
         if not self.frozen and not self.pinned:
@@ -120,6 +121,21 @@ class GodCam(Entity):
         self.yaw += vx * gain
         self.pitch += vy * gain * 0.85
         self.pitch = max(CAM_PITCH_MIN, min(CAM_PITCH_MAX, self.pitch))
+
+    def _arrows(self, dt):
+        dx = held_keys["right arrow"] - held_keys["left arrow"]
+        dy = held_keys["up arrow"] - held_keys["down arrow"]
+        if dx == 0 and dy == 0:
+            return
+        if self.pinned:
+            self.yaw += dx * 78 * dt
+            self.pitch += dy * 58 * dt
+            self.pitch = max(CAM_PITCH_MIN, min(CAM_PITCH_MAX, self.pitch))
+            return
+        speed = max(10.0, self.dist * 0.7)
+        self.look += self.view_right() * dx * speed * dt
+        self.look += self.view_forward() * dy * speed * dt
+        self.look.y = CAM_LOOK_Y
 
     def _zoom_step(self, dt):
         self._zoom = max(CAM_DIST_MIN, min(CAM_DIST_MAX, self._zoom))

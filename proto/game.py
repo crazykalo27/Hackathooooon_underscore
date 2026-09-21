@@ -112,6 +112,11 @@ class Game(Entity):
             typed=self.typed,
             builder=self.builder if self.state.mode == "build" else None,
         )
+        self.ui.sync_names(
+            self.world.npcs,
+            self.cam,
+            visible=self.state.mode not in ("title", "fade"),
+        )
         if self.state.mode == "fade":
             self.fade_veil.enabled = True
             a = int(min(1, self.fade) * 255)
@@ -170,8 +175,11 @@ class Game(Entity):
             if key == "t":
                 self.builder.test()
             if key == "r":
-                z = self.builder.zone
-                self.builder.enter(z, self.state.flags)
+                self.builder.rotate()
+            if key == "f":
+                self.builder.flip()
+            if key == "x":
+                self.builder.reset(self.state.flags)
             if key == "enter":
                 self.stamp()
             if key == "tab":
@@ -279,7 +287,7 @@ class Game(Entity):
         self.player.visible = False
         if self.cam:
             self.cam.pin(zone.x, zone.z)
-        self._banner("Drag orbit · scroll zoom. Click to place.")
+        self._banner("R spin · F flip · X reset pad · T test. Click to place.")
 
     def stamp(self):
         if not self.builder.goal_done:

@@ -30,6 +30,8 @@ class Builder:
         self.testing = False
         self.test_t = 0.0
         self._homes = []
+        self.yaw = 0
+        self.flipped = False
 
     def kinds(self, flags):
         k = ["box", "bar", "ball"]
@@ -51,6 +53,8 @@ class Builder:
         self.goal_done = False
         self.testing = False
         self._i = 0
+        self.yaw = 0
+        self.flipped = False
         self.message = zone.label
         k = self.kinds(flags)
         if zone.key == "workshop":
@@ -87,7 +91,7 @@ class Builder:
         self.goal_done = False
         self._homes = []
 
-    def _scale(self, kind):
+    def _base_scale(self, kind):
         return {
             "box": (0.9, 0.9, 0.9),
             "bar": (2.2, 0.32, 0.32),
@@ -96,6 +100,14 @@ class Builder:
             "motor": (0.9, 0.45, 0.9),
             "brace": (5.6, 0.4, 0.4),
         }[kind]
+
+    def _scale(self, kind):
+        sx, sy, sz = self._base_scale(kind)
+        if self.flipped:
+            sx, sy = sy, sx
+        if self.yaw % 2:
+            sx, sz = sz, sx
+        return (sx, sy, sz)
 
     def _prep(self, e, kind, mat):
         e.kind = kind
@@ -207,13 +219,35 @@ class Builder:
         self._prep(p, self.kind, self.material)
         self.parts.append(p)
         self._i += 1
-        self.message = f"Placed {self.kind} ({self.material}). T to test."
+        self.message = f"Placed {self.kind}. R rotate, F flip, T test."
+
+    def rotate(self):
+        if not self.active or self.testing:
+            return
+        self.yaw = (self.yaw + 1) % 4
+        deg = self.yaw * 90
+        self.message = f"Rotate {deg}. Four times returns it."
+
+    def flip(self):
+        if not self.active or self.testing:
+            return
+        self.flipped = not self.flipped
+        self.message = "Flip to the axis R cannot reach. F again to undo."
 
     def cycle(self, flags):
         k = self.kinds(flags)
         i = k.index(self.kind) if self.kind in k else 0
         self.kind = k[(i + 1) % len(k)]
+        self.yaw = 0
+        self.flipped = False
         self._ghost()
+
+    def reset(self, flags):
+        if not self.active or not self.zone:
+            return
+        zone = self.zone
+        self.enter(zone, flags)
+        self.message = "Pad reset."
 
     def set_mat(self, name, flags):
         if name in self.mats(flags):
