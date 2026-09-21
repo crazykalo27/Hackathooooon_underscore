@@ -12,7 +12,7 @@ def run():
     from ursina import Ursina, window
 
     from proto import visuals
-    from proto.game import Game
+    from proto.loading import Boot
 
     app = Ursina()
     visuals.apply()
@@ -21,7 +21,7 @@ def run():
     window.exit_button.visible = False
     window.fps_counter.enabled = False
 
-    Game()
+    Boot()
     app.run()
 
 

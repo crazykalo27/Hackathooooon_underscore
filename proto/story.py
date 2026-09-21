@@ -44,64 +44,65 @@ class NpcDef:
     color: tuple
     talk: str
     z: float = 0.0
+    rot: float = -90  # yaw; 0 faces +Z
     show_if: str | None = None  # flag required to appear
     hide_if: str | None = None
 
 
 SHIP_ZONES = [
-    Zone("workshop", 18, 0, 7, 6, "shelf", "First invention — click place, T, Enter", GOLD,
-         gate_flag="met_rio", gate_msg="Talk to Rio in the hall first."),
-    Zone("hydro", 24, 0, 5, 5, "lift", "Hydraulics — piston + T", HYDRO,
+    Zone("workshop", 22, 0, 12, 12, "shelf", "Stack a shelf, T to drop the crate", GOLD,
+         gate_flag="met_mara", gate_msg="Talk to Mara by the bunk first."),
+    Zone("hydro", 38, 0, 10, 10, "lift", "Piston under the crate, T to lift", HYDRO,
+         gate_flag="first_invention", gate_msg="Workshop first.", lift_y=1.8),
+    Zone("circuit", 52, 0, 10, 10, "roll", "Motor against the crate, T to roll", CIRCUIT,
          gate_flag="first_invention", gate_msg="Workshop first."),
-    Zone("circuit", 29, 0, 5, 5, "roll", "Circuits — motor + T", CIRCUIT,
+    Zone("struct", 68, 0, 12, 10, "span", "Brace across the gap, T to roll", STRUCT, gap=(65.5, 70.5),
          gate_flag="first_invention", gate_msg="Workshop first."),
-    Zone("struct", 34, 0, 6, 5, "span", "Structure — span the gap", STRUCT, gap=(32.5, 35.5),
-         gate_flag="first_invention", gate_msg="Workshop first."),
-    Zone("lab", 39, 0, 5, 5, "free", "Capstone pad", TEAL,
+    Zone("lab", 82, 0, 10, 10, "free", "Capstone pad — T anything that holds", TEAL,
          gate_flag="starter", gate_msg="Pick a starter mentor first."),
 ]
 
 EARTH_ZONES = [
-    Zone("ravine", 18, 0, 10, 8, "span", "Span the ravine", ACCENT, gap=(14, 22),
+    Zone("ravine", 20, 0, 20, 16, "span", "Span the ravine", ACCENT, gap=(14, 22),
          gate_flag="met_dust", gate_msg="Talk to Dust first."),
-    Zone("storm", 8, 0, 5, 5, "shelf", "Clinic door", TEAL,
+    Zone("storm", 8, 0, 10, 10, "shelf", "Clinic door", TEAL,
          gate_flag="storm", gate_msg="No storm yet."),
 ]
 
 C2_ZONES = [
-    Zone("shade", 10, 0, 6, 5, "shelf", "Shade the tanks", ACCENT,
+    Zone("shade", 12, 0, 12, 10, "shelf", "Shade the tanks", ACCENT,
          gate_flag="met_reed", gate_msg="Talk to Reed first."),
-    Zone("pylon", 22, 0, 7, 5, "span", "Pylon footing", ACCENT, gap=(20, 24),
+    Zone("pylon", 26, 0, 14, 10, "span", "Pylon footing", ACCENT, gap=(24, 28),
          gate_flag="shade", gate_msg="Shade first."),
 ]
 
 SHIP_NPCS = [
-    NpcDef("cot", "Cot", 1.5, (176, 156, 168), "cot"),
-    NpcDef("mara", "Mara", 3.5, (236, 124, 104), "mara"),
-    NpcDef("jun", "Jun", 7.0, (232, 168, 176), "jun"),
-    NpcDef("rio", "Rio", 11.0, (104, 176, 204), "rio"),
-    NpcDef("olia", "Olia", 24.0, HYDRO, "olia", show_if="first_invention"),
-    NpcDef("vex", "Vex", 29.0, CIRCUIT, "vex", show_if="first_invention"),
-    NpcDef("kenji", "Kenji", 34.0, STRUCT, "kenji", show_if="first_invention"),
-    NpcDef("sila", "Sila", 39.0, (196, 160, 232), "sila", show_if="first_invention"),
-    NpcDef("lift", "Elevator", 45.0, ACCENT, "elevator"),
+    NpcDef("cot", "Cot", 2.0, (176, 156, 168), "cot", z=-3.7, rot=70),
+    NpcDef("mara", "Mara", 5.5, (236, 124, 104), "mara", z=-3.8, rot=10),
+    NpcDef("jun", "Jun", 8.6, (232, 168, 176), "jun", z=5.1, rot=200),
+    NpcDef("rio", "Rio", 14.1, (104, 176, 204), "rio", z=-5.0, rot=180),
+    NpcDef("olia", "Olia", 31.8, HYDRO, "olia", z=6.2, rot=-70, show_if="first_invention"),
+    NpcDef("vex", "Vex", 54.6, CIRCUIT, "vex", z=-6.2, rot=95, show_if="first_invention"),
+    NpcDef("kenji", "Kenji", 63.4, STRUCT, "kenji", z=6.0, rot=-50, show_if="first_invention"),
+    NpcDef("sila", "Sila", 76.4, (196, 160, 232), "sila", z=-6.1, rot=55, show_if="first_invention"),
+    NpcDef("lift", "Elevator", 87.8, ACCENT, "elevator", z=4.0, rot=-90),
 ]
 
 EARTH_NPCS = [
-    NpcDef("lift", "Elevator", 2.5, ACCENT, "elevator"),
-    NpcDef("dust", "Dust", 8.0, (196, 124, 72), "dust"),
-    NpcDef("ivy", "Ivy", 6.0, (170, 150, 190), "ivy"),
-    NpcDef("pax", "Pax", 11.0, (150, 110, 80), "pax"),
-    NpcDef("sample", "Goo", 26.0, (214, 86, 168), "sample", hide_if="sample"),
-    NpcDef("trail", "East", 38.0, (180, 140, 90), "trail", show_if="ravine"),
+    NpcDef("lift", "Elevator", 2.4, ACCENT, "elevator", z=2.4, rot=90),
+    NpcDef("dust", "Dust", 7.4, (196, 124, 72), "dust", z=-3.6, rot=40),
+    NpcDef("ivy", "Ivy", 5.2, (170, 150, 190), "ivy", z=3.8, rot=160),
+    NpcDef("pax", "Pax", 11.4, (150, 110, 80), "pax", z=4.2, rot=-20),
+    NpcDef("sample", "Goo", 26.2, (214, 86, 168), "sample", z=-2.8, hide_if="sample"),
+    NpcDef("trail", "East", 37.6, (180, 140, 90), "trail", z=2.2, rot=-90, show_if="ravine"),
 ]
 
 C2_NPCS = [
-    NpcDef("flare", "Flare", 2.0, (255, 140, 80), "flare"),
-    NpcDef("reed", "Reed", 9.0, (80, 150, 170), "reed"),
-    NpcDef("nima", "Nima", 14.0, (200, 150, 110), "nima", hide_if="nima_left"),
-    NpcDef("pylon", "Pylon", 22.0, ACCENT, "pylon"),
-    NpcDef("frost", "Frost", 30.0, (150, 210, 230), "frost", hide_if="icy_sample"),
+    NpcDef("flare", "Flare", 2.2, (255, 140, 80), "flare", z=-3.2, rot=50),
+    NpcDef("reed", "Reed", 8.6, (80, 150, 170), "reed", z=4.4, rot=200),
+    NpcDef("nima", "Nima", 14.4, (200, 150, 110), "nima", z=-4.0, rot=15, hide_if="nima_left"),
+    NpcDef("pylon", "Pylon", 26.4, ACCENT, "pylon", z=3.6, rot=-90),
+    NpcDef("frost", "Frost", 30.6, (150, 210, 230), "frost", z=-3.8, rot=130, hide_if="icy_sample"),
 ]
 
 
@@ -119,11 +120,9 @@ def map_len(map_name):
 
 def objective(flags):
     if not flags.get("met_mara"):
-        return "Talk to Mara (orange name by the bunk). Walk with WASD, E to talk."
-    if not flags.get("met_rio"):
-        return "Walk forward to Rio in the hall. Press E."
+        return "Talk to Mara (coral, by the bunk). Walk with WASD, E to talk."
     if not flags.get("first_invention"):
-        return "Yellow WORKSHOP pad ahead. Stand on it, B, click place, T, Enter."
+        return "Yellow WORKSHOP pad down the hall. Stand on it, B, click, T, Enter. Others are optional."
     if not flags.get("trial_hydraulics"):
         return "Blue HYDRAULICS pad — Olia. B, piston (Tab), T, Enter."
     if not flags.get("trial_circuits"):
@@ -166,13 +165,13 @@ def lines(talk_id, flags, map_name="ship"):
         if flags.get("met_mara"):
             if flags.get("first_invention"):
                 return [("Mara", "Trials next. Taste all three. Then pick a starter.")]
-            return [("Mara", "Hall — Rio. Then the yellow workshop pad. B to build.")]
+            return [("Mara", "Yellow workshop pad. B to build. Everyone else is extra.")]
         flags["met_mara"] = True
         return [
             ("Mara", "Up. The Seeded Program does not wait for beautiful sleep."),
             ("You", "I still feel like I stole someone else's slot."),
             ("Mara", "You built through it. That is why they want you on Earth."),
-            ("Mara", "Walk the hall. Talk to Rio. Then invent. We do not run out of steel — we run out of knowing."),
+            ("Mara", "Invent on the yellow pad. Talk to the others if you want — you do not have to."),
         ]
     if talk_id == "rio":
         flags["met_rio"] = True

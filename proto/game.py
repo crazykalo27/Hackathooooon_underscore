@@ -14,14 +14,13 @@ from proto.world import World
 
 
 class Game(Entity):
-    def __init__(self):
+    def __init__(self, autoload=True):
         super().__init__()
         self.state = State()
         self.world = World()
         self.builder = Builder()
         self.ui = UI()
-        self.player = Player(position=(5.5, 0, 0))
-        self.player.disable()
+        self.player = None
         self.dialogue = []
         self.d_i = 0
         self.typed = 0.0
@@ -46,10 +45,23 @@ class Game(Entity):
             enabled=False,
         )
         self.fade_label = None
+        if autoload:
+            self.boot_world()
+            self.boot_player()
+
+    def boot_world(self):
         self.world.load("ship", self.state.flags)
+
+    def boot_player(self):
+        if self.player:
+            return
+        self.player = Player(position=(5.5, 0, 0))
+        self.player.disable()
         self.ui.show_title(True)
 
     def update(self):
+        if self.player is None:
+            return
         dt = time.dt
         if self.state.banner_t > 0:
             self.state.banner_t -= dt
@@ -66,7 +78,7 @@ class Game(Entity):
             # keep on floor maps
             length = story.map_len(self.state.map_name)
             self.player.x = max(1.0, min(length - 1.5, self.player.x))
-            self.player.z = max(-3.5, min(3.5, self.player.z))
+            self.player.z = max(-7.4, min(7.4, self.player.z))
             if self.state.map_name == "earth" and self.state.flag("ravine") and self.player.x > EARTH_LEN - 2.5:
                 if not self.state.flag("c2_elevator_done"):
                     self.begin_fade(self._to_c2, "East trail", "Heat instead of a gap.")
@@ -104,6 +116,8 @@ class Game(Entity):
             self.fade_veil.enabled = False
 
     def input(self, key):
+        if self.player is None:
+            return
         if key == "escape":
             if self.state.mode == "build":
                 self._leave_build()
@@ -228,9 +242,7 @@ class Game(Entity):
         else:
             self.state.mode = "play"
             self.player.enable()
-            if self.state.flag("met_mara") and not self.state.flag("met_rio"):
-                self._banner("Walk forward (W). Talk to Rio.")
-            elif self.state.flag("met_rio") and not self.state.flag("first_invention"):
+            if self.state.flag("met_mara") and not self.state.flag("first_invention"):
                 self._banner("Yellow WORKSHOP pad. Stand on it, press B.")
             # refresh world if mentors should appear
             if self.state.flag("first_invention"):
@@ -250,7 +262,8 @@ class Game(Entity):
         self.builder.enter(zone, self.state.flags)
         self.state.mode = "build"
         self.player.disable()
-        self._banner("Click the pad to place. Use the BUILD menu.")
+        self.player.visible = False
+        self._banner("WASD orbit the pad. Click to place.")
 
     def stamp(self):
         if not self.builder.goal_done:
@@ -274,7 +287,9 @@ class Game(Entity):
     def _leave_build(self):
         self.builder.leave()
         self.state.mode = "play"
+        self.player.visible = True
         self.player.enable()
+        self.player.snap_camera()
 
     def begin_fade(self, cb, title, sub):
         self.fade_dir = 1
@@ -327,7 +342,7 @@ class Game(Entity):
     def _to_ship(self):
         self.state.day += 1
         self.state.day_clock = 0
-        self._swap("ship", 44)
+        self._swap("ship", SHIP_LEN - 4)
         self.state._elevator_tick()
         self._banner("Ship lab.")
 
@@ -342,7 +357,7 @@ class Game(Entity):
         self._swap("earth", EARTH_LEN - 3)
 
     def _flare(self):
-        self._swap("ship", 44)
+        self._swap("ship", SHIP_LEN - 4)
         self.state._elevator_tick()
         self._banner("Flare. No return until cable.")
 

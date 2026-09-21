@@ -55,7 +55,7 @@ class Player(Entity):
         s = self.strafe()
         pos = self.world_position + Vec3(0, 3.1, 0) - f * 5.2 + s * 1.4
         pos.x = max(-2.0, pos.x)
-        pos.z = max(-3.4, min(3.4, pos.z))
+        pos.z = max(-7.2, min(7.2, pos.z))
         pos.y = 3.1
         return pos
 
@@ -75,15 +75,16 @@ class Player(Entity):
         return
 
     def update(self):
-        if self.enabled_control:
-            self.rotation_y += mouse.velocity[0] * 45
-            move = self.facing() * (held_keys["w"] - held_keys["s"]) + self.strafe() * (
-                held_keys["d"] - held_keys["a"]
-            )
-            move.y = 0
-            if move.length() > 0:
-                self.position += move.normalized() * time.dt * self.speed
-            self.y = 0
+        if not self.enabled_control:
+            return
+        self.rotation_y += mouse.velocity[0] * 45
+        move = self.facing() * (held_keys["w"] - held_keys["s"]) + self.strafe() * (
+            held_keys["d"] - held_keys["a"]
+        )
+        move.y = 0
+        if move.length() > 0:
+            self.position += move.normalized() * time.dt * self.speed
+        self.y = 0
         self._follow_cam()
 
     def _follow_cam(self):

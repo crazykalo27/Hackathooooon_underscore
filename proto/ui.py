@@ -237,7 +237,7 @@ class UI:
             lines = [
                 "WASD walk · mouse look · Esc unlock mouse",
                 "E talk · B build on a glowing pad",
-                "Build: click pad to place · menu picks part",
+                "Build: WASD orbit/zoom · click to place",
                 "T test · Enter stamp · RMB undo",
             ]
             y = 0.1

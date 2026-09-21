@@ -42,9 +42,10 @@ MATERIALS = {
 
 STARTERS = ("hydraulics", "circuits", "structure")
 
-SHIP_LEN = 48.0
-EARTH_LEN = 42.0
-C2_LEN = 36.0
+SHIP_LEN = 92.0
+EARTH_LEN = 48.0
+C2_LEN = 42.0
+HALL_HALF = 8.0
 
 
 def rgb(c):

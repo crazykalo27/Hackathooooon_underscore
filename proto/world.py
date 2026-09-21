@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ursina import Entity, Vec3, destroy, scene
+from ursina import Entity, Text, Vec3, destroy, scene
 
 from proto import story
 from proto.config import (
@@ -12,12 +12,14 @@ from proto.config import (
     EARTH_DIRT,
     EARTH_SAND,
     GOLD,
+    INK,
     SHADOW,
     SHIP_FLOOR,
     SHIP_FLOOR_B,
     SHIP_ROSE,
     SHIP_WALL,
     TEAL,
+    rgb,
 )
 from proto.figure import attach, shade
 from proto.visuals import solid
@@ -55,16 +57,19 @@ class World:
         return solid(col, parent=self.root, model="cube", position=pos, scale=scale, collider=collider)
 
     def _arch(self, x, col=SHIP_WALL):
-        self._box(col, (x, 2.15, -4.15), (0.5, 4.3, 0.5))
-        self._box(col, (x, 2.15, 4.15), (0.5, 4.3, 0.5))
-        self._box(col, (x, 4.4, 0), (0.5, 0.4, 8.8))
+        from proto.config import HALL_HALF
+
+        z = HALL_HALF - 0.35
+        self._box(col, (x, 2.15, -z), (0.5, 4.3, 0.5))
+        self._box(col, (x, 2.15, z), (0.5, 4.3, 0.5))
+        self._box(col, (x, 4.4, 0), (0.5, 0.4, HALL_HALF * 2))
 
     def _label(self, x, text, y=2.4, z=-4.35):
         w = min(0.28 * max(len(text), 4), 2.6)
         return self._box(GOLD, (x, y, z), (w, 0.12, 0.12))
 
     def _person(self, defn):
-        root = Entity(parent=self.root, position=(defn.x, 0, defn.z), rotation_y=-90)
+        root = Entity(parent=self.root, position=(defn.x, 0, defn.z), rotation_y=defn.rot)
         Entity(
             parent=root,
             model="cube",
@@ -78,56 +83,76 @@ class World:
         root.npc_id = defn.id
         root.npc_name = defn.name
         root.talk_id = defn.talk
+        self._name_tag(root, defn.name)
         self.npcs.append(root)
         return root
 
+    def _name_tag(self, root, name):
+        holder = Entity(parent=root, y=2.14)
+        holder.world_rotation = Vec3(0, 0, 0)
+        holder.billboard = True
+        w = max(0.72, 0.15 * len(name) + 0.28)
+        solid(CREAM, parent=holder, model="quad", scale=(w, 0.26), z=0.02)
+        Text(
+            text=name,
+            parent=holder,
+            origin=(0, 0),
+            scale=11,
+            color=rgb(INK),
+        )
+
     def _pad(self, zone):
-        w = min(zone.w, 3.0)
-        d = min(zone.d, 3.0)
-        self._box(SHADOW, (zone.x, 0.02, zone.z), (w + 0.35, 0.04, d + 0.35))
-        pad = self._box(zone.color, (zone.x, 0.12, zone.z), (w, 0.22, d))
-        top = tuple(min(255, c + 28) for c in zone.color[:3])
-        self._box(top, (zone.x, 0.26, zone.z), (w * 0.72, 0.06, d * 0.72))
+        if zone.gap:
+            left, right = zone.gap
+            lw = max(1.2, left - (zone.x - zone.w * 0.5))
+            rw = max(1.2, (zone.x + zone.w * 0.5) - right)
+            self._box(SHADOW, ((zone.x - zone.w * 0.5) + lw * 0.5, 0.02, zone.z), (lw + 0.3, 0.04, zone.d + 0.3))
+            self._box(zone.color, ((zone.x - zone.w * 0.5) + lw * 0.5, 0.12, zone.z), (lw, 0.22, zone.d))
+            self._box(SHADOW, ((zone.x + zone.w * 0.5) - rw * 0.5, 0.02, zone.z), (rw + 0.3, 0.04, zone.d + 0.3))
+            pad = self._box(zone.color, ((zone.x + zone.w * 0.5) - rw * 0.5, 0.12, zone.z), (rw, 0.22, zone.d))
+            self._box((90, 70, 62), ((left + right) * 0.5, -1.2, zone.z), (right - left, 2.2, zone.d * 0.85))
+        else:
+            self._box(SHADOW, (zone.x, 0.02, zone.z), (zone.w + 0.4, 0.04, zone.d + 0.4))
+            pad = self._box(zone.color, (zone.x, 0.12, zone.z), (zone.w, 0.22, zone.d))
+            top = tuple(min(255, c + 28) for c in zone.color[:3])
+            self._box(top, (zone.x, 0.26, zone.z), (zone.w * 0.84, 0.06, zone.d * 0.84))
         pad.zone = zone
         self.pads[zone.key] = pad
         return pad
 
     def _ship(self, flags):
-        from proto.config import SHIP_LEN
+        from proto.config import HALL_HALF, SHIP_LEN
 
         length = SHIP_LEN
-        self._box(SHIP_FLOOR, (length / 2, -0.22, 0), (length + 10, 0.44, 10.4), collider="box")
+        hz = HALL_HALF
+        wide = hz * 2 + 0.8
+        self._box(SHIP_FLOOR, (length / 2, -0.22, 0), (length + 10, 0.44, wide), collider="box")
         for i, x in enumerate(range(-4, int(length), 4)):
             tile = SHIP_FLOOR if i % 2 == 0 else SHIP_FLOOR_B
-            self._box(tile, (x + 2, 0.01, 0), (3.7, 0.05, 9.6))
-        # low parapets — sky shows above, like an open monument
-        self._box(SHIP_ROSE, (length / 2, 0.55, -5.05), (length + 10, 1.1, 0.35), collider="box")
-        self._box(SHIP_WALL, (length / 2, 0.55, 5.05), (length + 10, 1.1, 0.35), collider="box")
-        self._box(SHIP_WALL, (-4.5, 2.0, 0), (0.5, 4.0, 10.4), collider="box")
+            self._box(tile, (x + 2, 0.01, 0), (3.7, 0.05, wide - 0.8))
+        self._box(SHIP_ROSE, (length / 2, 0.55, -hz - 0.2), (length + 10, 1.1, 0.35), collider="box")
+        self._box(SHIP_WALL, (length / 2, 0.55, hz + 0.2), (length + 10, 1.1, 0.35), collider="box")
+        self._box(SHIP_WALL, (-4.5, 2.0, 0), (0.5, 4.0, wide), collider="box")
         self._box(ACCENT, (-4.5, 4.2, 0), (0.6, 0.35, 3.2))
-        for x in (6, 14, 22, 30, 38):
-            self._arch(x, SHIP_WALL if (x // 8) % 2 == 0 else CREAM)
-        for x in range(2, int(length), 8):
-            self._box((168, 204, 220), (x, 2.15, -5.15), (1.6, 1.3, 0.12))
-            self._box(GOLD, (x + 4, 2.8, 5.15), (0.9, 0.18, 0.18))
-        # bunk as stacked blocks
+        for x in range(8, int(length), 12):
+            self._arch(x, SHIP_WALL if (x // 12) % 2 == 0 else CREAM)
+        for x in range(2, int(length), 10):
+            self._box((168, 204, 220), (x, 2.15, -hz - 0.25), (1.6, 1.3, 0.12))
+            self._box(GOLD, (x + 5, 2.8, hz + 0.25), (0.9, 0.18, 0.18))
         self._box(SHIP_ROSE, (3.2, 0.35, -2.2), (3.2, 0.7, 2.0), collider="box")
         self._box(CREAM, (2.4, 0.78, -2.2), (1.4, 0.18, 1.5))
         self._box(ACCENT, (4.4, 0.85, -2.2), (0.35, 0.35, 0.35))
-        # seed slab
-        self._box(INK_SLAB, (10.5, 1.6, -4.7), (2.2, 1.5, 0.16))
-        self._box(GOLD, (10.5, 1.6, -4.58), (1.4, 0.9, 0.08))
-        # workbench
-        self._box((196, 140, 100), (18, 0.4, -3.3), (2.4, 0.8, 1.0), collider="box")
-        self._box(CREAM, (18, 0.85, -3.3), (2.5, 0.1, 1.1))
-        # elevator totem
-        self._box(SHIP_ROSE, (45.5, 1.2, 0), (2.2, 2.4, 2.2), collider="box")
-        self._box(ACCENT, (45.5, 2.6, 0), (1.4, 0.4, 1.4))
-        self._box(CREAM, (45.5, 3.4, 0), (0.7, 1.2, 0.7))
-        # floating sky cubes
-        self._box((210, 228, 236), (16, 6.4, -8), (1.4, 1.4, 1.4))
-        self._box((232, 200, 186), (28, 7.2, 9), (0.9, 0.9, 0.9))
-        self._box((176, 208, 196), (40, 6.8, -7), (1.1, 1.1, 1.1))
+        self._box(INK_SLAB, (10.5, 1.6, -hz + 0.35), (2.2, 1.5, 0.16))
+        self._box(GOLD, (10.5, 1.6, -hz + 0.45), (1.4, 0.9, 0.08))
+        self._box((196, 140, 100), (14, 0.4, -hz + 1.6), (2.4, 0.8, 1.0), collider="box")
+        self._box(CREAM, (14, 0.85, -hz + 1.6), (2.5, 0.1, 1.1))
+        ex = length - 3.5
+        self._box(SHIP_ROSE, (ex, 1.2, 0), (2.2, 2.4, 2.2), collider="box")
+        self._box(ACCENT, (ex, 2.6, 0), (1.4, 0.4, 1.4))
+        self._box(CREAM, (ex, 3.4, 0), (0.7, 1.2, 0.7))
+        self._box((210, 228, 236), (16, 6.4, -hz - 3), (1.4, 1.4, 1.4))
+        self._box((232, 200, 186), (40, 7.2, hz + 3), (0.9, 0.9, 0.9))
+        self._box((176, 208, 196), (70, 6.8, -hz - 2), (1.1, 1.1, 1.1))
         for z in story.SHIP_ZONES:
             self._pad(z)
         for n in story.SHIP_NPCS:
@@ -141,14 +166,13 @@ class World:
         from proto.config import EARTH_LEN
 
         left, right = 14.0, 22.0
-        self._box(EARTH_SAND, (left / 2, -0.2, 0), (left + 1, 0.4, 14), collider="box")
+        self._box(EARTH_SAND, (left / 2, -0.2, 0), (left + 1, 0.4, 18), collider="box")
         mid = (left + right) / 2
-        self._box(EARTH_SAND, ((right + EARTH_LEN) / 2, -0.2, 0), (EARTH_LEN - right + 1, 0.4, 14), collider="box")
-        self._box(EARTH_CLIFF, (mid, -2.4, 0), (right - left, 0.5, 14))
-        # stepped canyon
-        self._box(EARTH_DIRT, (left, -0.6, 0), (0.6, 1.6, 14), collider="box")
-        self._box(EARTH_CLIFF, (left - 1.2, 0.4, 0), (1.4, 1.2, 8))
-        self._box(EARTH_DIRT, (right, -0.6, 0), (0.6, 1.6, 14), collider="box")
+        self._box(EARTH_SAND, ((right + EARTH_LEN) / 2, -0.2, 0), (EARTH_LEN - right + 1, 0.4, 18), collider="box")
+        self._box(EARTH_CLIFF, (mid, -2.4, 0), (right - left, 0.5, 18))
+        self._box(EARTH_DIRT, (left, -0.6, 0), (0.6, 1.6, 18), collider="box")
+        self._box(EARTH_CLIFF, (left - 1.2, 0.4, 0), (1.4, 1.2, 10))
+        self._box(EARTH_DIRT, (right, -0.6, 0), (0.6, 1.6, 18), collider="box")
         self._box(GOLD, (32, 7.5, -11), (2.2, 2.2, 2.2))
         self._box(EARTH_CLIFF, (8, 0.9, -1.4), (3.0, 1.8, 2.4), collider="box")
         self._box(CREAM, (8, 1.95, -1.4), (2.2, 0.25, 1.6))

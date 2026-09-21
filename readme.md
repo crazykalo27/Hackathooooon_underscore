@@ -13,14 +13,14 @@ python3 -m venv .venv
 ```
 
 ### First 5 minutes
-1. **Enter** — Mara talks
-2. **WASD** walk the hall → **E** on Rio  
-3. Stand on yellow **WORKSHOP** → **B** → **click** place → **T** → **Enter** stamp
+1. **Enter** — talk to **Mara** (E)
+2. Stand on yellow **WORKSHOP** → **B** → **click** place → **T** → **Enter** stamp
+3. Everyone else in the hall is optional
 
 ### Controls
 | Key | |
 | --- | --- |
-| WASD | move |
+| WASD | walk, or orbit/zoom a pad in build |
 | Mouse | look (Esc unlocks) |
 | E / Enter | talk / continue / stamp |
 | B | build on pad |
