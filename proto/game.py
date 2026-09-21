@@ -6,7 +6,8 @@ from ursina import Entity, color, mouse, time
 
 from proto import story
 from proto.builder import Builder
-from proto.config import EARTH_LEN, HALL_HALF, HULL_CEIL, SHIP_LEN, WALK_Z
+from proto.camera import GodCam
+from proto.config import EARTH_LEN, SHIP_LEN, WALK_Z
 from proto.player import Player
 from proto.state import State
 from proto.ui import UI
@@ -21,6 +22,7 @@ class Game(Entity):
         self.builder = Builder()
         self.ui = UI()
         self.player = None
+        self.cam = None
         self.dialogue = []
         self.d_i = 0
         self.typed = 0.0
@@ -57,6 +59,7 @@ class Game(Entity):
             return
         self.player = Player(position=(5.5, 0, 0))
         self.player.disable()
+        self.cam = GodCam(self.player, self.world)
         self.ui.show_title(True)
 
     def update(self):
@@ -129,7 +132,7 @@ class Game(Entity):
             elif mouse.locked:
                 mouse.locked = False
             elif self.state.mode == "play":
-                mouse.locked = True
+                mouse.locked = True  # lock: swipe-orbit without holding a button
             return
 
         if self.state.mode == "title":
@@ -164,13 +167,11 @@ class Game(Entity):
                 if self.ui.build_menu.consume_click(self.builder, self.state.flags):
                     return
                 self.builder.place()
-            if key == "right mouse down" or key == "backspace":
-                self.builder.delete_last()
             if key == "t":
                 self.builder.test()
             if key == "r":
                 z = self.builder.zone
-                self.builder.enter(z, self.state.flags, hull=self._hull_bounds())
+                self.builder.enter(z, self.state.flags)
             if key == "enter":
                 self.stamp()
             if key == "tab":
@@ -180,10 +181,12 @@ class Game(Entity):
                 idx = int(key) - 1
                 if idx < len(names):
                     self.builder.set_mat(names[idx], self.state.flags)
-            if key == "scroll up":
-                self.builder.nudge_pitch(8)
-            if key == "scroll down":
-                self.builder.nudge_pitch(-8)
+            if key == "right mouse up":
+                drag = abs(mouse.delta[0]) + abs(mouse.delta[1]) if mouse.delta else 0
+                if drag < 0.04:
+                    self.builder.delete_last()
+            if key == "backspace":
+                self.builder.delete_last()
 
     def wake(self):
         self.state.mode = "play"
@@ -191,6 +194,8 @@ class Game(Entity):
         self.player.teleport(5.5, 0)
         self.player.rotation_y = 90
         self.player.enable()
+        if self.cam:
+            self.cam.resume()
         self._banner("You are in the academy hall. Walk to Mara (coral), press E.")
 
     def continue_save(self):
@@ -202,6 +207,8 @@ class Game(Entity):
         self.state.mode = "play"
         self.ui.show_title(False)
         self.player.enable()
+        if self.cam:
+            self.cam.resume()
         self._banner("Continued.")
 
     def start_talk(self, npc):
@@ -213,6 +220,8 @@ class Game(Entity):
         self.typed = 0.0
         self.state.mode = "talk"
         self.player.disable()
+        if self.cam:
+            self.cam.frozen = False
 
     def _advance_talk(self):
         if not self.dialogue:
@@ -264,11 +273,13 @@ class Game(Entity):
         if zone.gate_flag and not self.state.flag(zone.gate_flag):
             self._banner(zone.gate_msg)
             return
-        self.builder.enter(zone, self.state.flags, hull=self._hull_bounds())
+        self.builder.enter(zone, self.state.flags)
         self.state.mode = "build"
         self.player.disable()
         self.player.visible = False
-        self._banner("WASD orbit · scroll tilts. Click to place.")
+        if self.cam:
+            self.cam.pin(zone.x, zone.z)
+        self._banner("Drag orbit · scroll zoom. Click to place.")
 
     def stamp(self):
         if not self.builder.goal_done:
@@ -294,23 +305,10 @@ class Game(Entity):
         self.state.mode = "play"
         self.player.visible = True
         self.player.enable()
-        self.player.snap_camera()
-
-    def _hull_bounds(self):
-        if self.state.map_name != "ship":
-            z = self.world.zone_here(self.player) or self.builder.zone
-            if not z:
-                return None
-            return (
-                z.x - z.w * 0.7,
-                z.x + z.w * 0.7,
-                0.5,
-                12.0,
-                z.z - z.d * 0.7,
-                z.z + z.d * 0.7,
-            )
-        m = HALL_HALF - 0.75
-        return (0.4, SHIP_LEN - 0.7, 0.55, HULL_CEIL - 0.45, -m, m)
+        if self.cam:
+            self.cam.resume()
+        else:
+            self.player.snap_camera()
 
     def begin_fade(self, cb, title, sub):
         self.fade_dir = 1
@@ -321,6 +319,8 @@ class Game(Entity):
         self.fade_sub = sub
         self.state.mode = "fade"
         self.player.disable()
+        if self.cam:
+            self.cam.frozen = True
 
     def _update_fade(self, dt):
         if self.fade_dir == 1:
@@ -338,6 +338,8 @@ class Game(Entity):
                 self.fade_dir = 0
                 self.state.mode = "play"
                 self.player.enable()
+                if self.cam:
+                    self.cam.frozen = False
 
     def _skip_fade(self):
         if self.fade_dir == 1 and self.fade_cb:
@@ -347,6 +349,8 @@ class Game(Entity):
         self.fade_dir = 0
         self.state.mode = "play"
         self.player.enable()
+        if self.cam:
+            self.cam.frozen = False
 
     def _swap(self, name, x):
         self.state.map_name = name

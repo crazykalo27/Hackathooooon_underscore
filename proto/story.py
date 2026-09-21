@@ -120,17 +120,17 @@ def map_len(map_name):
 
 def objective(flags):
     if not flags.get("met_mara"):
-        return "Talk to Mara (coral, by the bunk). Walk with WASD, E to talk."
+        return "Talk to Mara by the bunk. WASD walk, E talk."
     if not flags.get("first_invention"):
-        return "Yellow WORKSHOP pad down the hall. Stand on it, B, click, T, Enter. Others are optional."
+        return "Yellow WORKSHOP pad. Stand, B, click, T, Enter."
     if not flags.get("trial_hydraulics"):
-        return "Blue HYDRAULICS pad — Olia. B, piston (Tab), T, Enter."
+        return "Blue HYDRAULICS — Olia. B, piston, T, Enter."
     if not flags.get("trial_circuits"):
         return "Green CIRCUITS pad — Vex."
     if not flags.get("trial_structure"):
         return "Gold STRUCTURE pad — Kenji."
     if not flags.get("starter"):
-        return "Talk to Olia, Vex, or Kenji to pick your starter."
+        return "Talk to Olia, Vex, or Kenji. Pick a starter."
     if not flags.get("capstone"):
         return "Lab pad by Sila — stamp any build."
     if not flags.get("registered"):

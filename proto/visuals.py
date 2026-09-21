@@ -29,9 +29,18 @@ void main() {
 )
 
 
+_ambient = None
+_sun = None
+
+
 def apply():
     # Do NOT set Entity.default_shader — that breaks Text/font rendering.
-    from proto.config import SKY
+    global _ambient, _sun
+    from proto.config import FONT, SKY
+    from ursina import Text
+
+    Text.default_font = FONT
+    Text.default_resolution = 16
 
     window.color = color.rgb(*SKY)
     window.fullscreen = False
@@ -42,8 +51,19 @@ def apply():
         camera.overlay.enabled = False
         camera.overlay.scale = 0
         camera.overlay.color = color.clear
-    AmbientLight(color=color.rgb(230, 226, 220))
-    DirectionalLight(rotation=(50, -20, 0), color=color.rgb(255, 248, 236))
+    _ambient = AmbientLight(color=color.rgb(118, 100, 86))
+    _sun = DirectionalLight(rotation=(42, -28, 0), color=color.rgb(255, 186, 132))
+
+
+def mood(map_name):
+    if _ambient is None:
+        return
+    if map_name == "ship":
+        _ambient.color = color.rgb(108, 90, 76)
+        _sun.color = color.rgb(255, 176, 122)
+    else:
+        _ambient.color = color.rgb(200, 188, 170)
+        _sun.color = color.rgb(255, 232, 204)
 
 
 def paint(col):

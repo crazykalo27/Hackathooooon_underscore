@@ -4,8 +4,10 @@ this is kallen branch!
 
 ## Underscore proto (3D Ursina)
 
-Modular first-person slice. First five minutes actually playable.
+Modular god-view slice. First five minutes actually playable.
 
+
+TO RUN THE GAME!!!!
 ```
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
@@ -20,9 +22,10 @@ python3 -m venv .venv
 ### Controls
 | Key | |
 | --- | --- |
-| WASD | walk, or orbit/zoom a pad in build |
-| Scroll | tilt build camera up / down |
-| Mouse | look (Esc unlocks) |
+| WASD | walk (camera-relative) |
+| Drag | orbit. Build: right-drag (left click places) |
+| Scroll | zoom |
+| Mouse | Esc locks for clickless orbit |
 | E / Enter | talk / continue / stamp |
 | B | build on pad |
 | Click | place part |
@@ -37,7 +40,8 @@ python3 -m venv .venv
 proto/
   app.py        bootstrap
   game.py       modes / input
-  player.py     first-person move
+  camera.py     god-view orbit / edge pan / hull cutaway
+  player.py     walk
   world.py      maps + NPCs
   builder.py    pad build
   story.py      dialogue / zones

@@ -7,7 +7,7 @@ import math
 from ursina import Entity, Text, camera, destroy, time
 from ursina import color as ursina_color
 
-from proto.config import ACCENT, CREAM, GOLD, INK, MUTED, PAPER, SKY, TEAL, rgb
+from proto.config import ACCENT, FONT, GOLD, IRON, LAMP, MUTED, PAPER, PATINA, SHADOW, SKY, rgb
 from proto.visuals import COLOR
 
 
@@ -29,18 +29,54 @@ class LoadingScreen:
             parent=self.root,
             model="quad",
             shader=COLOR,
-            color=rgb(PAPER),
-            scale=(0.55, 0.42),
+            color=rgb(SHADOW),
+            scale=(0.60, 0.46),
+            y=0.04,
+            z=1.2,
+        )
+        Entity(
+            parent=self.root,
+            model="quad",
+            shader=COLOR,
+            color=rgb(IRON),
+            scale=(0.56, 0.42),
             y=0.04,
             z=1,
         )
-        Text(parent=self.root, text="SEEDED PROGRAM", y=0.18, origin=(0, 0), scale=0.7, color=rgb(ACCENT))
-        Text(parent=self.root, text="UNDERSCORE", y=0.10, origin=(0, 0), scale=1.2, color=rgb(INK))
-        self.status = Text(parent=self.root, text="LOADING", y=-0.14, origin=(0, 0), scale=0.8, color=rgb(MUTED))
-        self.bar_bg = Entity(parent=self.root, model="quad", shader=COLOR, color=rgb(CREAM), scale=(0.36, 0.02), y=-0.2, z=1)
-        self.bar = Entity(parent=self.root, model="quad", shader=COLOR, color=rgb(ACCENT), scale=(0.02, 0.02), y=-0.2, x=-0.17, z=0)
+        Text(
+            parent=self.root,
+            font=FONT,
+            use_tags=False,
+            text="SEEDED PROGRAM",
+            y=0.18,
+            origin=(0, 0),
+            scale=0.78,
+            color=rgb(LAMP),
+        )
+        Text(
+            parent=self.root,
+            font=FONT,
+            use_tags=False,
+            text="UNDERSCORE",
+            y=0.10,
+            origin=(0, 0),
+            scale=1.2,
+            color=rgb(PAPER),
+        )
+        self.status = Text(
+            parent=self.root,
+            font=FONT,
+            use_tags=False,
+            text="LOADING",
+            y=-0.14,
+            origin=(0, 0),
+            scale=0.85,
+            color=rgb(MUTED),
+        )
+        self.bar_bg = Entity(parent=self.root, model="quad", shader=COLOR, color=rgb(SHADOW), scale=(0.36, 0.02), y=-0.2, z=1)
+        self.bar = Entity(parent=self.root, model="quad", shader=COLOR, color=rgb(LAMP), scale=(0.02, 0.02), y=-0.2, x=-0.17, z=0)
         self.cubes = []
-        palette = (ACCENT, GOLD, TEAL, (232, 168, 156))
+        palette = (ACCENT, GOLD, PATINA, LAMP)
         for i, col in enumerate(palette):
             q = Entity(
                 parent=self.root,

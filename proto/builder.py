@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import math
-
-from ursina import Entity, Vec3, camera, destroy, held_keys, mouse, scene, time
+from ursina import Entity, Vec3, destroy, mouse, time
 
 from proto.config import MATERIALS
 from proto import sim
@@ -32,15 +30,6 @@ class Builder:
         self.testing = False
         self.test_t = 0.0
         self._homes = []
-        self._look = Vec3(0, 1.2, 0)
-        self._yaw = 48.0
-        self._pitch = 34.0
-        self._pmin = 14.0
-        self._pmax = 76.0
-        self._dist = 6.2
-        self._dmin = 3.8
-        self._dmax = 9.5
-        self._hull = None
 
     def kinds(self, flags):
         k = ["box", "bar", "ball"]
@@ -55,10 +44,9 @@ class Builder:
                 m.append(x)
         return m
 
-    def enter(self, zone, flags, hull=None):
+    def enter(self, zone, flags):
         self.leave()
         self.zone = zone
-        self._hull = hull
         self.active = True
         self.goal_done = False
         self.testing = False
@@ -79,7 +67,6 @@ class Builder:
         self._spawn_crate()
         self._ghost()
         mouse.locked = False
-        self._aim_pad(zone)
 
     def leave(self):
         self.active = False
@@ -99,62 +86,6 @@ class Builder:
         self.zone = None
         self.goal_done = False
         self._homes = []
-        self._hull = None
-
-    def _aim_pad(self, zone):
-        self._look = Vec3(zone.x, 1.05, zone.z)
-        span = max(zone.w, zone.d)
-        self._dmin = 3.8
-        self._dmax = 9.5
-        self._dist = min(self._dmax, max(self._dmin, span * 0.52))
-        self._yaw = 48.0
-        self._pitch = 34.0
-        self._apply_orbit()
-
-    def nudge_pitch(self, deg):
-        if not self.active:
-            return
-        self._pitch = max(self._pmin, min(self._pmax, self._pitch + deg))
-        self._apply_orbit()
-
-    def _orbit(self):
-        dt = time.dt
-        self._yaw += (held_keys["d"] - held_keys["a"]) * 78 * dt
-        self._dist += (held_keys["s"] - held_keys["w"]) * 8 * dt
-        self._dist = max(self._dmin, min(self._dmax, self._dist))
-        self._apply_orbit()
-
-    def _orbit_pos(self):
-        pitch = math.radians(self._pitch)
-        yaw = math.radians(self._yaw)
-        cy = math.cos(pitch)
-        ox = -math.sin(yaw) * cy * self._dist
-        oy = math.sin(pitch) * self._dist
-        oz = -math.cos(yaw) * cy * self._dist
-        return self._look + Vec3(ox, oy, oz)
-
-    def _clamp_cam(self, pos):
-        b = self._hull
-        if b:
-            x0, x1, y0, y1, z0, z1 = b
-            pos = Vec3(
-                max(x0, min(x1, pos.x)),
-                max(y0, min(y1, pos.y)),
-                max(z0, min(z1, pos.z)),
-            )
-        return pos
-
-    def _apply_orbit(self):
-        self._pitch = max(self._pmin, min(self._pmax, self._pitch))
-        self._dist = max(self._dmin, min(self._dmax, self._dist))
-        pos = self._clamp_cam(self._orbit_pos())
-        camera.parent = scene
-        camera.position = pos
-        offset = self._look - pos
-        ground = math.sqrt(offset.x * offset.x + offset.z * offset.z)
-        camera.rotation_x = -math.degrees(math.atan2(offset.y, max(ground, 0.05)))
-        camera.rotation_y = math.degrees(math.atan2(offset.x, offset.z))
-        camera.rotation_z = 0
 
     def _scale(self, kind):
         return {
@@ -251,7 +182,6 @@ class Builder:
     def update(self):
         if not self.active:
             return
-        self._orbit()
         dt = min(0.05, time.dt)
         if self.testing:
             self._step_test(dt)

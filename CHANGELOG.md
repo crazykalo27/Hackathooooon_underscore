@@ -1,5 +1,7 @@
 # Underscore log
 
+- HUD, talk, and build text sit on iron/brass plates with a pixel font — no more overlapping labels or floating type.
+- Build uses that same camera — no more hull-clamped pad orbit.
 - Proto rewritten into compartments: app, game, player, world, builder, story, state, ui, visuals.
 - First-person movement (WASD + mouse) so you can actually walk the academy.
 - Academy: only Mara is required; Rio and the rest are optional before the workshop.
@@ -14,3 +16,4 @@
 - Hull is wider and taller; build cam starts close, stays inside the ship, scroll tilts up/down.
 - Pad tests: the crate sits where it will fall; stacked parts hold it instead of getting shoved.
 - Build tray is a little pixel hull terminal: brackets, pips, and a blinking link light.
+- Ship interior is a darker steampunk hull: iron plates, brass rivets, pipes, lamps — not a pastel room.

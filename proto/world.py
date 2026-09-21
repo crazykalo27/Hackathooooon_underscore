@@ -6,31 +6,35 @@ from ursina import Entity, Text, Vec3, destroy, scene
 
 from proto import story
 from proto.config import (
-    ACCENT,
+    BRASS,
+    BRASS_D,
+    COPPER,
     CREAM,
     EARTH_CLIFF,
     EARTH_DIRT,
     EARTH_SAND,
+    FONT,
     GOLD,
-    INK,
+    IRON,
+    IRON_B,
+    LAMP,
+    PAPER,
+    PATINA,
     SHADOW,
     SHIP_FLOOR,
-    SHIP_FLOOR_B,
     SHIP_ROSE,
     SHIP_WALL,
     SKY,
     SPACE,
     STAR,
     STAR_DIM,
-    STEEL,
     TEAL,
     HULL_CEIL,
     rgb,
 )
 from proto.figure import attach, shade
-from proto.visuals import solid
+from proto.visuals import mood, solid
 
-INK_SLAB = (72, 58, 68)
 STEEL_TOTEM = (176, 188, 204)
 
 
@@ -39,6 +43,8 @@ class World:
         self.root = None
         self.npcs = []
         self.pads = {}
+        self.hull = []
+        self._cut = None
         self.map_name = "ship"
 
     def clear(self):
@@ -47,6 +53,8 @@ class World:
         self.root = Entity()
         self.npcs.clear()
         self.pads.clear()
+        self.hull.clear()
+        self._cut = None
 
     def load(self, map_name: str, flags: dict):
         from ursina import color, window
@@ -55,6 +63,7 @@ class World:
         self.map_name = map_name
         scene.fog_density = 0
         window.color = color.rgb(*(SPACE if map_name == "ship" else SKY))
+        mood(map_name)
         if map_name == "ship":
             self._ship(flags)
         elif map_name == "c2":
@@ -62,16 +71,37 @@ class World:
         else:
             self._earth(flags)
 
-    def _box(self, col, pos, scale, collider=None):
-        return solid(col, parent=self.root, model="cube", position=pos, scale=scale, collider=collider)
+    def _box(self, col, pos, scale, collider=None, face=None):
+        e = solid(col, parent=self.root, model="cube", position=pos, scale=scale, collider=collider)
+        if face:
+            e.hull_face = face
+            self.hull.append(e)
+        return e
 
-    def _arch(self, x, col=SHIP_WALL):
+    def set_hull_hidden(self, hide):
+        if not hide:
+            if self._cut:
+                for e in self.hull:
+                    e.visible = True
+                self._cut = None
+            return
+        key = (hide.get("n"), hide.get("s"), hide.get("e"), hide.get("w"), hide.get("ceil"))
+        if key == self._cut:
+            return
+        self._cut = key
+        for e in self.hull:
+            face = getattr(e, "hull_face", None)
+            e.visible = not hide.get(face, False)
+
+    def _arch(self, x, col=IRON):
         from proto.config import HALL_HALF
 
-        z = HALL_HALF - 0.35
-        self._box(col, (x, 3.6, -z), (0.5, 7.2, 0.5))
-        self._box(col, (x, 3.6, z), (0.5, 7.2, 0.5))
-        self._box(col, (x, 7.3, 0), (0.5, 0.4, HALL_HALF * 2))
+        z = HALL_HALF - 0.4
+        self._box(col, (x, 3.6, -z), (0.7, 7.2, 0.55), face="s")
+        self._box(col, (x, 3.6, z), (0.7, 7.2, 0.55), face="n")
+        self._box(col, (x, 7.35, 0), (0.7, 0.5, HALL_HALF * 2), face="ceil")
+        self._box(BRASS, (x, 7.12, 0), (0.9, 0.12, HALL_HALF * 2 - 0.5), face="ceil")
+        self._box(BRASS, (x, 0.1, 0), (0.55, 0.14, HALL_HALF * 2 - 1.4))
 
     def _starfield(self, length):
         import random
@@ -94,23 +124,27 @@ class World:
                 pos = (rng.uniform(length + 8, length + 30), rng.uniform(0.2, 16), rng.uniform(-(hz + 6), hz + 6))
             s = rng.choice((0.07, 0.09, 0.12, 0.16, 0.22, 0.34))
             self._box(STAR if rng.random() > 0.28 else STAR_DIM, pos, (s, s, s))
-        self._box((96, 88, 138), (26, 6.2, -(hz + 12)), (5.6, 5.6, 5.6))
-        self._box((72, 118, 148), (60, 8.0, hz + 14), (2.5, 2.5, 2.5))
-        self._box((186, 118, 96), (10, 11.0, hz + 10), (1.3, 1.3, 1.3))
+        self._box(COPPER, (26, 6.2, -(hz + 12)), (5.6, 5.6, 5.6))
+        self._box(PATINA, (60, 8.0, hz + 14), (2.5, 2.5, 2.5))
+        self._box(BRASS, (10, 11.0, hz + 10), (1.3, 1.3, 1.3))
 
-    def _window(self, x, z, w=3.1, h=2.15, y=2.18):
-        inward = -0.1 if z > 0 else 0.1
+    def _window(self, x, z, w=3.1, h=2.15, y=2.18, face=None):
+        inward = -0.12 if z > 0 else 0.12
         fz = z + inward
-        self._box(STEEL, (x - w * 0.5, y, fz), (0.12, h, 0.2))
-        self._box(STEEL, (x + w * 0.5, y, fz), (0.12, h, 0.2))
-        self._box(STEEL, (x, y + h * 0.5, fz), (w + 0.12, 0.12, 0.2))
-        self._box(STEEL, (x, y - h * 0.5, fz), (w + 0.12, 0.12, 0.2))
-        self._box(STEEL, (x, y, fz), (0.08, h, 0.1))
+        self._box(BRASS, (x - w * 0.5, y, fz), (0.16, h, 0.22), face=face)
+        self._box(BRASS, (x + w * 0.5, y, fz), (0.16, h, 0.22), face=face)
+        self._box(BRASS, (x, y + h * 0.5, fz), (w + 0.16, 0.16, 0.22), face=face)
+        self._box(BRASS, (x, y - h * 0.5, fz), (w + 0.16, 0.16, 0.22), face=face)
+        self._box(BRASS_D, (x, y, fz), (0.1, h, 0.12), face=face)
+        for rx in (-w * 0.42, 0, w * 0.42):
+            self._box(BRASS, (x + rx, y - h * 0.5, fz), (0.14, 0.14, 0.26), face=face)
+            self._box(BRASS, (x + rx, y + h * 0.5, fz), (0.14, 0.14, 0.26), face=face)
 
-    def _hull_side(self, length, z, col):
-        self._box(col, (length / 2, 0.5, z), (length + 8, 1.0, 0.46), collider="box")
-        self._box(col, (length / 2, 3.95, z), (length + 8, 1.12, 0.5), collider="box")
-        self._box(col, (length / 2, 6.3, z), (length + 8, 3.6, 0.5), collider="box")
+    def _hull_side(self, length, z, col, face):
+        self._box(col, (length / 2, 0.5, z), (length + 8, 1.0, 0.5), collider="box", face=face)
+        self._box(BRASS, (length / 2, 1.02, z + (-0.02 if z > 0 else 0.02)), (length + 8, 0.08, 0.56), face=face)
+        self._box(col, (length / 2, 3.95, z), (length + 8, 1.12, 0.5), collider="box", face=face)
+        self._box(col, (length / 2, 6.3, z), (length + 8, 3.6, 0.5), collider="box", face=face)
         spacing = 9.0
         win_w = 3.1
         windows = [4.0 + i * spacing for i in range(int((length - 6) / spacing))]
@@ -119,28 +153,94 @@ class World:
             left = wx - win_w * 0.5
             pier_w = left - prev
             if pier_w > 0.35:
-                self._box(col, ((prev + left) * 0.5, 2.15, z), (pier_w, 2.3, 0.46), collider="box")
-            self._window(wx, z, win_w)
+                self._box(col, ((prev + left) * 0.5, 2.15, z), (pier_w, 2.3, 0.5), collider="box", face=face)
+            self._window(wx, z, win_w, face=face)
             prev = wx + win_w * 0.5
         end = length + 4.0
         pier_w = end - prev
         if pier_w > 0.35:
-            self._box(col, ((prev + end) * 0.5, 2.15, z), (pier_w, 2.3, 0.46), collider="box")
+            self._box(col, ((prev + end) * 0.5, 2.15, z), (pier_w, 2.3, 0.5), collider="box", face=face)
+        self._dress_wall(length, z, face, windows)
+
+    def _dress_wall(self, length, z, face, windows):
+        inward = -0.28 if z > 0 else 0.28
+        fz = z + inward
+        self._box(BRASS, (length / 2, 4.55, fz), (length - 6, 0.16, 0.16), face=face)
+        self._box(COPPER, (length / 2, 4.78, fz), (length - 8, 0.1, 0.1), face=face)
+        for x in range(2, int(length), 2):
+            self._box(BRASS, (x, 1.04, fz), (0.12, 0.12, 0.12), face=face)
+        for i, wx in enumerate(windows):
+            if i % 2:
+                continue
+            gx = wx - 2.2
+            self._box(IRON, (gx, 3.15, fz), (0.32, 0.32, 0.12), face=face)
+            self._box(BRASS, (gx, 3.15, fz + inward * 0.15), (0.4, 0.4, 0.08), face=face)
+            self._box(LAMP, (gx, 3.15, fz + inward * 0.28), (0.08, 0.08, 0.1), face=face)
+        for x in range(10, int(length), 18):
+            self._box(BRASS, (x, 2.6, fz), (0.22, 2.4, 0.22), face=face)
+            self._box(BRASS_D, (x, 1.35, fz), (0.5, 0.12, 0.5), face=face)
+            self._box(BRASS, (x, 1.35, fz), (0.12, 0.12, 0.55), face=face)
+
+    def _deck(self, length, hz, wide):
+        self._box(SHIP_FLOOR, (length / 2, -0.22, 0), (length + 10, 0.44, wide), collider="box")
+        tw, td = 4.0, 4.2
+        zi = -hz + 1.8
+        row = 0
+        while zi < hz - 1.4:
+            xi = -2.0
+            col = 0
+            while xi < length:
+                plate = IRON if (row + col) % 2 == 0 else IRON_B
+                self._box(plate, (xi + tw * 0.5, 0.04, zi + td * 0.5), (tw - 0.14, 0.08, td - 0.14))
+                if (row + col) % 2 == 0:
+                    self._box(BRASS_D, (xi + 0.2, 0.1, zi + 0.2), (0.14, 0.08, 0.14))
+                    self._box(BRASS_D, (xi + tw - 0.2, 0.1, zi + td - 0.2), (0.14, 0.08, 0.14))
+                xi += tw
+                col += 1
+            zi += td
+            row += 1
+        self._box(BRASS, (length / 2, 0.09, 0), (length + 4, 0.06, 0.55))
+        for x in range(4, int(length), 8):
+            self._box(BRASS_D, (x, 0.12, 0), (0.35, 0.1, hz * 2 - 2.2))
+
+    def _ceiling(self, length, hz, wide):
+        for x in range(2, int(length), 8):
+            self._box(IRON, (x + 2.2, HULL_CEIL, 0), (5.2, 0.24, wide - 0.5), face="ceil")
+            self._box(BRASS, (x + 5.5, HULL_CEIL, 0), (0.32, 0.18, wide - 0.8), face="ceil")
+        self._box(COPPER, (length / 2, HULL_CEIL - 0.35, 4.2), (length - 8, 0.14, 0.14), face="ceil")
+        self._box(COPPER, (length / 2, HULL_CEIL - 0.35, -4.2), (length - 8, 0.14, 0.14), face="ceil")
+        for x in range(8, int(length), 12):
+            self._box(IRON, (x, HULL_CEIL - 0.55, 0), (0.12, 0.7, 0.12), face="ceil")
+            self._box(LAMP, (x, HULL_CEIL - 0.95, 0), (0.5, 0.22, 0.5), face="ceil")
+            self._box(BRASS, (x, HULL_CEIL - 0.82, 0), (0.62, 0.08, 0.62), face="ceil")
 
     def _west_viewport(self, hz):
         wide = hz * 2 + 0.8
         gap = 2.15
         wing_d = hz + 0.4 - gap
         wing_c = gap + wing_d * 0.5
-        self._box(SHIP_WALL, (-4.5, 0.5, 0), (0.5, 1.0, wide), collider="box")
-        self._box(SHIP_WALL, (-4.5, 6.1, 0), (0.5, 4.0, wide), collider="box")
-        self._box(SHIP_WALL, (-4.5, 2.55, -wing_c), (0.5, 3.1, wing_d), collider="box")
-        self._box(SHIP_WALL, (-4.5, 2.55, wing_c), (0.5, 3.1, wing_d), collider="box")
-        self._box(STEEL, (-4.35, 2.2, -gap), (0.18, 2.3, 0.12))
-        self._box(STEEL, (-4.35, 2.2, gap), (0.18, 2.3, 0.12))
-        self._box(STEEL, (-4.35, 3.35, 0), (0.18, 0.12, gap * 2))
-        self._box(STEEL, (-4.35, 1.05, 0), (0.18, 0.12, gap * 2))
-        self._box(ACCENT, (-4.5, HULL_CEIL, 0), (0.6, 0.28, 2.8))
+        self._box(IRON, (-4.5, 0.5, 0), (0.5, 1.0, wide), collider="box", face="w")
+        self._box(IRON, (-4.5, 6.1, 0), (0.5, 4.0, wide), collider="box", face="w")
+        self._box(IRON, (-4.5, 2.55, -wing_c), (0.5, 3.1, wing_d), collider="box", face="w")
+        self._box(IRON, (-4.5, 2.55, wing_c), (0.5, 3.1, wing_d), collider="box", face="w")
+        self._box(BRASS, (-4.35, 2.2, -gap), (0.2, 2.4, 0.16), face="w")
+        self._box(BRASS, (-4.35, 2.2, gap), (0.2, 2.4, 0.16), face="w")
+        self._box(BRASS, (-4.35, 3.4, 0), (0.2, 0.16, gap * 2), face="w")
+        self._box(BRASS, (-4.35, 1.05, 0), (0.2, 0.16, gap * 2), face="w")
+        self._box(LAMP, (-4.5, HULL_CEIL, 0), (0.55, 0.22, 2.4), face="w")
+        self._box(COPPER, (-4.2, 0.35, 0), (0.4, 0.4, 1.2), face="w")
+
+    def _east_bulkhead(self, length, hz):
+        wide = hz * 2 + 0.8
+        x = length + 4.2
+        self._box(IRON, (x, 0.5, 0), (0.5, 1.0, wide), collider="box", face="e")
+        self._box(IRON, (x, 3.95, 0), (0.5, 5.9, wide), collider="box", face="e")
+        self._box(BRASS, (x - 0.18, 2.3, 0), (0.22, 2.6, 2.6), face="e")
+        self._box(COPPER, (x - 1.1, 1.4, 4.5), (1.6, 2.6, 1.6))
+        self._box(BRASS, (x - 1.1, 2.8, 4.5), (1.75, 0.18, 1.75))
+        self._box(IRON, (x - 1.1, 1.5, -4.5), (1.4, 2.8, 1.4))
+        self._box(BRASS, (x - 1.1, 3.0, -4.5), (1.55, 0.16, 1.55))
+        self._box(PATINA, (x - 1.1, 3.4, -4.5), (0.5, 0.4, 0.5))
 
     def _label(self, x, text, y=2.4, z=-4.35):
         w = min(0.28 * max(len(text), 4), 2.6)
@@ -166,17 +266,22 @@ class World:
         return root
 
     def _name_tag(self, root, name):
-        holder = Entity(parent=root, y=2.14)
+        holder = Entity(parent=root, y=2.08)
         holder.world_rotation = Vec3(0, 0, 0)
         holder.billboard = True
-        w = max(0.72, 0.15 * len(name) + 0.28)
-        solid(CREAM, parent=holder, model="quad", scale=(w, 0.26), z=0.02)
+        w = max(0.58, 0.10 * len(name) + 0.22)
+        solid(SHADOW, parent=holder, model="quad", scale=(w + 0.08, 0.20), z=0.04)
+        solid((28, 22, 18), parent=holder, model="quad", scale=(w, 0.14), z=0.03)
+        solid(BRASS, parent=holder, model="quad", scale=(w * 0.86, 0.016), y=0.048, z=0.02)
         Text(
-            text=name,
+            font=FONT,
+            use_tags=False,
+            text=name.upper(),
             parent=holder,
             origin=(0, 0),
-            scale=11,
-            color=rgb(INK),
+            y=-0.008,
+            scale=3.6,
+            color=rgb(PAPER),
         )
 
     def _pad(self, zone):
@@ -205,29 +310,30 @@ class World:
         hz = HALL_HALF
         wide = hz * 2 + 0.8
         self._starfield(length)
-        self._box(SHIP_FLOOR, (length / 2, -0.22, 0), (length + 10, 0.44, wide), collider="box")
-        for i, x in enumerate(range(-4, int(length), 4)):
-            tile = SHIP_FLOOR if i % 2 == 0 else SHIP_FLOOR_B
-            self._box(tile, (x + 2, 0.01, 0), (3.7, 0.05, wide - 0.8))
-        self._hull_side(length, -hz - 0.22, SHIP_ROSE)
-        self._hull_side(length, hz + 0.22, SHIP_WALL)
+        self._deck(length, hz, wide)
+        self._hull_side(length, -hz - 0.22, SHIP_ROSE, "s")
+        self._hull_side(length, hz + 0.22, SHIP_WALL, "n")
         self._west_viewport(hz)
-        for x in range(2, int(length), 8):
-            self._box(SHIP_WALL, (x + 2.2, HULL_CEIL, 0), (5.2, 0.22, wide - 0.5))
-            self._box(STEEL, (x + 5.5, HULL_CEIL, 0), (0.28, 0.16, wide - 0.7))
+        self._east_bulkhead(length, hz)
+        self._ceiling(length, hz, wide)
         for x in range(8, int(length), 12):
-            self._arch(x, SHIP_WALL if (x // 12) % 2 == 0 else CREAM)
-        self._box(SHIP_ROSE, (3.2, 0.35, -2.2), (3.2, 0.7, 2.0), collider="box")
-        self._box(CREAM, (2.4, 0.78, -2.2), (1.4, 0.18, 1.5))
-        self._box(ACCENT, (4.4, 0.85, -2.2), (0.35, 0.35, 0.35))
-        self._box(INK_SLAB, (10.5, 1.6, -hz + 0.35), (2.2, 1.5, 0.16))
-        self._box(GOLD, (10.5, 1.6, -hz + 0.45), (1.4, 0.9, 0.08))
-        self._box((196, 140, 100), (14, 0.4, -hz + 1.6), (2.4, 0.8, 1.0), collider="box")
-        self._box(CREAM, (14, 0.85, -hz + 1.6), (2.5, 0.1, 1.1))
+            self._arch(x, IRON if (x // 12) % 2 == 0 else IRON_B)
+        self._box(IRON, (3.2, 0.28, -2.2), (3.3, 0.4, 2.1), collider="box")
+        self._box(BRASS, (1.7, 0.7, -2.9), (0.22, 1.1, 0.22))
+        self._box(BRASS, (4.7, 0.7, -1.5), (0.22, 1.1, 0.22))
+        self._box(COPPER, (3.2, 0.62, -2.2), (2.8, 0.22, 1.6))
+        self._box(LAMP, (4.5, 1.15, -2.2), (0.28, 0.22, 0.28))
+        self._box(IRON, (10.5, 1.7, -hz + 0.4), (2.3, 1.6, 0.18), face="s")
+        self._box(BRASS, (10.5, 1.7, -hz + 0.52), (1.5, 1.0, 0.1), face="s")
+        self._box(IRON, (14, 0.35, -hz + 1.6), (2.5, 0.7, 1.1), collider="box")
+        self._box(BRASS, (14, 0.78, -hz + 1.6), (2.6, 0.1, 1.2))
+        self._box(PATINA, (14.9, 0.55, -hz + 1.1), (0.35, 0.45, 0.35))
         ex = length - 3.5
-        self._box(SHIP_ROSE, (ex, 1.2, 0), (2.2, 2.4, 2.2), collider="box")
-        self._box(ACCENT, (ex, 2.6, 0), (1.4, 0.4, 1.4))
-        self._box(CREAM, (ex, 3.4, 0), (0.7, 1.2, 0.7))
+        self._box(IRON, (ex, 1.15, 0), (2.3, 2.3, 2.3), collider="box")
+        self._box(BRASS, (ex, 0.45, 0), (2.5, 0.2, 2.5))
+        self._box(BRASS, (ex, 2.4, 0), (2.5, 0.18, 2.5))
+        self._box(COPPER, (ex, 3.2, 0), (1.1, 1.4, 1.1))
+        self._box(LAMP, (ex, 4.0, 0), (0.45, 0.25, 0.45))
         for z in story.SHIP_ZONES:
             self._pad(z)
         for n in story.SHIP_NPCS:
