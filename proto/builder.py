@@ -22,6 +22,7 @@ class Builder:
         self.parts = []
         self.crate = None
         self.ghost = None
+        self.drop_mark = None
         self.kind = "box"
         self.material = "wood"
         self.goal_done = False
@@ -33,10 +34,13 @@ class Builder:
         self._homes = []
         self._look = Vec3(0, 1.2, 0)
         self._yaw = 48.0
-        self._pitch = 40.0
-        self._dist = 14.0
-        self._dmin = 5.0
-        self._dmax = 28.0
+        self._pitch = 34.0
+        self._pmin = 14.0
+        self._pmax = 76.0
+        self._dist = 6.2
+        self._dmin = 3.8
+        self._dmax = 9.5
+        self._hull = None
 
     def kinds(self, flags):
         k = ["box", "bar", "ball"]
@@ -51,9 +55,10 @@ class Builder:
                 m.append(x)
         return m
 
-    def enter(self, zone, flags):
+    def enter(self, zone, flags, hull=None):
         self.leave()
         self.zone = zone
+        self._hull = hull
         self.active = True
         self.goal_done = False
         self.testing = False
@@ -85,41 +90,70 @@ class Builder:
         if self.crate:
             destroy(self.crate)
             self.crate = None
+        if self.drop_mark:
+            destroy(self.drop_mark)
+            self.drop_mark = None
         if self.ghost:
             destroy(self.ghost)
             self.ghost = None
         self.zone = None
         self.goal_done = False
         self._homes = []
+        self._hull = None
 
     def _aim_pad(self, zone):
-        self._look = Vec3(zone.x, 1.15, zone.z)
+        self._look = Vec3(zone.x, 1.05, zone.z)
         span = max(zone.w, zone.d)
-        self._dist = max(10.0, span * 1.2)
-        self._dmin = 5.0
-        self._dmax = max(26.0, span * 2.4)
+        self._dmin = 3.8
+        self._dmax = 9.5
+        self._dist = min(self._dmax, max(self._dmin, span * 0.52))
         self._yaw = 48.0
-        self._pitch = 40.0
+        self._pitch = 34.0
+        self._apply_orbit()
+
+    def nudge_pitch(self, deg):
+        if not self.active:
+            return
+        self._pitch = max(self._pmin, min(self._pmax, self._pitch + deg))
         self._apply_orbit()
 
     def _orbit(self):
         dt = time.dt
         self._yaw += (held_keys["d"] - held_keys["a"]) * 78 * dt
-        self._dist += (held_keys["s"] - held_keys["w"]) * 11 * dt
+        self._dist += (held_keys["s"] - held_keys["w"]) * 8 * dt
         self._dist = max(self._dmin, min(self._dmax, self._dist))
         self._apply_orbit()
 
-    def _apply_orbit(self):
+    def _orbit_pos(self):
         pitch = math.radians(self._pitch)
         yaw = math.radians(self._yaw)
         cy = math.cos(pitch)
         ox = -math.sin(yaw) * cy * self._dist
         oy = math.sin(pitch) * self._dist
         oz = -math.cos(yaw) * cy * self._dist
+        return self._look + Vec3(ox, oy, oz)
+
+    def _clamp_cam(self, pos):
+        b = self._hull
+        if b:
+            x0, x1, y0, y1, z0, z1 = b
+            pos = Vec3(
+                max(x0, min(x1, pos.x)),
+                max(y0, min(y1, pos.y)),
+                max(z0, min(z1, pos.z)),
+            )
+        return pos
+
+    def _apply_orbit(self):
+        self._pitch = max(self._pmin, min(self._pmax, self._pitch))
+        self._dist = max(self._dmin, min(self._dmax, self._dist))
+        pos = self._clamp_cam(self._orbit_pos())
         camera.parent = scene
-        camera.position = self._look + Vec3(ox, oy, oz)
-        camera.rotation_x = self._pitch
-        camera.rotation_y = self._yaw
+        camera.position = pos
+        offset = self._look - pos
+        ground = math.sqrt(offset.x * offset.x + offset.z * offset.z)
+        camera.rotation_x = -math.degrees(math.atan2(offset.y, max(ground, 0.05)))
+        camera.rotation_y = math.degrees(math.atan2(offset.x, offset.z))
         camera.rotation_z = 0
 
     def _scale(self, kind):
@@ -129,7 +163,7 @@ class Builder:
             "ball": (0.7, 0.7, 0.7),
             "piston": (0.5, 1.1, 0.5),
             "motor": (0.9, 0.45, 0.9),
-            "brace": (2.4, 0.4, 0.4),
+            "brace": (5.6, 0.4, 0.4),
         }[kind]
 
     def _prep(self, e, kind, mat):
@@ -143,27 +177,42 @@ class Builder:
         e._y0 = e.y
         e.origin_y = -0.5
 
-    def _spawn_crate(self):
+    def _crate_home(self):
         z = self.zone
         x = z.x
+        y = FLOOR
         if z.goal == "span" and z.gap:
             x = z.gap[0] - 1.1
         elif z.goal == "roll":
             x = z.x - z.w * 0.32
-        elif z.goal == "lift":
-            x = z.x
         elif z.goal == "shelf":
             x = z.x + 0.4
+            y = 2.6
+        elif z.goal == "lift":
+            x = z.x
+        return Vec3(x, y, z.z)
+
+    def _spawn_crate(self):
+        pos = self._crate_home()
         self.crate = solid(
             (210, 140, 70),
             parent=self.root,
             model="cube",
-            position=(x, FLOOR, z.z),
+            position=pos,
             scale=0.7,
-            collider="box",
+            collider=None,
             origin_y=-0.5,
         )
         self._prep(self.crate, "crate", "crate")
+        if self.zone.goal == "shelf":
+            self.drop_mark = solid(
+                (210, 186, 168),
+                parent=self.root,
+                model="cube",
+                position=(pos.x, FLOOR, pos.z),
+                scale=(0.85, 0.05, 0.85),
+                collider=None,
+            )
 
     def _ghost(self):
         if self.ghost:
@@ -259,14 +308,13 @@ class Builder:
             p._h0 = p.scale_y
             p.vx = p.vy = p.vz = 0
         if self.crate:
+            home = self._crate_home()
+            self.crate.position = home
             self.crate.vx = self.crate.vy = self.crate.vz = 0
-            if self.zone.goal == "shelf":
-                sim.set_bottom(self.crate, 2.6)
-                self.crate.vy = 0
             if self.zone.goal == "span":
-                self.crate.vx = 2.4
+                self.crate.vx = 3.0
             if self.zone.goal == "roll":
-                self.crate.vx = 0.4
+                self.crate.vx = 0.6
         self.message = "Testing physics…"
 
     def _restore(self):
@@ -277,19 +325,22 @@ class Builder:
                 p.y = p._y0
             p.vx = p.vy = p.vz = 0
         if self.crate:
-            z = self.zone
-            x = z.x
-            if z.goal == "span" and z.gap:
-                x = z.gap[0] - 1.1
-            elif z.goal == "roll":
-                x = z.x - z.w * 0.32
-            self.crate.position = Vec3(x, FLOOR, z.z)
+            self.crate.position = self._crate_home()
             self.crate.vx = self.crate.vy = self.crate.vz = 0
 
     def _step_test(self, dt):
+        steps = 3
+        step = dt / steps
+        for _ in range(steps):
+            self._physics_step(step)
         self.test_t += dt
-        bodies = [p for p in self.parts] + ([self.crate] if self.crate else [])
+        if self.test_t >= TEST_TIME:
+            self._finish_test()
+
+    def _physics_step(self, dt):
         t = self.test_t
+        static = [p for p in self.parts if not sim.is_dynamic(p)]
+        dyn = [e for e in list(self.parts) + ([self.crate] if self.crate else []) if sim.is_dynamic(e)]
 
         for p in self.parts:
             if p.kind == "piston":
@@ -297,12 +348,12 @@ class Builder:
                 p.scale_y = p._h0 + grow
             if p.kind == "motor":
                 p.rotation_y += 220 * dt
-                if self.crate and sim.overlap(p, self.crate, slop=0.12):
-                    self.crate.vx += 10.0 * dt
+                if self.crate and sim.overlap(p, self.crate, slop=0.16):
+                    self.crate.vx += 14.0 * dt
 
-        for e in bodies:
-            if not sim.is_dynamic(e):
-                continue
+        z = self.zone
+        for e in dyn:
+            old_y = e.y
             e.vy -= GRAVITY * dt
             e.x += e.vx * dt
             e.y += e.vy * dt
@@ -311,38 +362,27 @@ class Builder:
             floor = self._floor_y(e.x)
             if e.y < floor:
                 e.y = floor
-                bounce = sim.props(e)["bounce"]
-                if e.vy < -0.5:
-                    e.vy *= -bounce
-                else:
-                    e.vy = 0
+                e.vy = 0
                 e._grounded = True
-                e.vx *= max(0, 1 - sim.props(e)["friction"] * 0.12)
-                e.vz *= max(0, 1 - sim.props(e)["friction"] * 0.12)
-            z = self.zone
+            sim.land_on(e, static, old_y)
             e.x = max(z.x - z.w * 0.5, min(z.x + z.w * 0.5, e.x))
             e.z = max(z.z - z.d * 0.5, min(z.z + z.d * 0.5, e.z))
+            if e._grounded:
+                mu = sim.props(e)["friction"]
+                e.vx *= max(0.0, 1.0 - mu * 1.2 * dt)
+                e.vz *= max(0.0, 1.0 - mu * 1.2 * dt)
 
         for p in self.parts:
-            if p.kind == "piston" and self.crate and sim.overlap(p, self.crate, slop=0.05):
-                if self.crate.y < sim.top_y(p):
+            if p.kind == "piston" and self.crate and sim.xz_overlap(p, self.crate, pad=0.05):
+                if self.crate.y < sim.top_y(p) + 0.05:
                     sim.set_bottom(self.crate, sim.top_y(p))
                     if self.crate.vy < 0:
                         self.crate.vy = 0
-                    self.crate.vy += 1.8 * dt
                     self.crate._grounded = True
 
-        dyn = [e for e in bodies if sim.is_dynamic(e)]
-        static = [e for e in bodies if not sim.is_dynamic(e)]
         for d in dyn:
             for s in static:
                 sim.separate(d, s)
-        for i, a in enumerate(dyn):
-            for b in dyn[i + 1 :]:
-                sim.separate(a, b)
-
-        if self.test_t >= TEST_TIME:
-            self._finish_test()
 
     def _finish_test(self):
         self.testing = False

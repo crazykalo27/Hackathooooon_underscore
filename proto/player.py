@@ -6,7 +6,7 @@ import math
 
 from ursina import Entity, Vec3, camera, held_keys, mouse, scene, time
 
-from proto.config import ACCENT, CREAM, MOVE_SPEED, PEACH
+from proto.config import ACCENT, CREAM, HALL_HALF, MOVE_SPEED, PEACH
 from proto.figure import attach
 
 
@@ -55,7 +55,7 @@ class Player(Entity):
         s = self.strafe()
         pos = self.world_position + Vec3(0, 3.1, 0) - f * 5.2 + s * 1.4
         pos.x = max(-2.0, pos.x)
-        pos.z = max(-7.2, min(7.2, pos.z))
+        pos.z = max(-(HALL_HALF - 1.0), min(HALL_HALF - 1.0, pos.z))
         pos.y = 3.1
         return pos
 

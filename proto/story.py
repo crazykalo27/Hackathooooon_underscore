@@ -79,8 +79,8 @@ C2_ZONES = [
 SHIP_NPCS = [
     NpcDef("cot", "Cot", 2.0, (176, 156, 168), "cot", z=-3.7, rot=70),
     NpcDef("mara", "Mara", 5.5, (236, 124, 104), "mara", z=-3.8, rot=10),
-    NpcDef("jun", "Jun", 8.6, (232, 168, 176), "jun", z=5.1, rot=200),
-    NpcDef("rio", "Rio", 14.1, (104, 176, 204), "rio", z=-5.0, rot=180),
+    NpcDef("jun", "Jun", 8.6, (232, 168, 176), "jun", z=9.2, rot=200),
+    NpcDef("rio", "Rio", 14.1, (104, 176, 204), "rio", z=-11.2, rot=180),
     NpcDef("olia", "Olia", 31.8, HYDRO, "olia", z=6.2, rot=-70, show_if="first_invention"),
     NpcDef("vex", "Vex", 54.6, CIRCUIT, "vex", z=-6.2, rot=95, show_if="first_invention"),
     NpcDef("kenji", "Kenji", 63.4, STRUCT, "kenji", z=6.0, rot=-50, show_if="first_invention"),

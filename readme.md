@@ -21,6 +21,7 @@ python3 -m venv .venv
 | Key | |
 | --- | --- |
 | WASD | walk, or orbit/zoom a pad in build |
+| Scroll | tilt build camera up / down |
 | Mouse | look (Esc unlocks) |
 | E / Enter | talk / continue / stamp |
 | B | build on pad |

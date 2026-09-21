@@ -21,6 +21,9 @@ HYDRO = (96, 176, 220)
 CIRCUIT = (120, 196, 148)
 STRUCT = (232, 176, 96)
 SKY = (186, 214, 228)
+SPACE = (10, 14, 28)
+STAR = (236, 232, 220)
+STAR_DIM = (148, 164, 198)
 SHIP_FLOOR = (242, 226, 206)
 SHIP_FLOOR_B = (228, 208, 186)
 SHIP_WALL = (236, 214, 198)
@@ -45,7 +48,9 @@ STARTERS = ("hydraulics", "circuits", "structure")
 SHIP_LEN = 92.0
 EARTH_LEN = 48.0
 C2_LEN = 42.0
-HALL_HALF = 8.0
+HALL_HALF = 14.0
+HULL_CEIL = 8.1
+WALK_Z = HALL_HALF - 0.8
 
 
 def rgb(c):

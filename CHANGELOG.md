@@ -10,3 +10,7 @@
 - Pads are plaza-sized; T runs gravity, stacking, pistons, motors, and gaps instead of teleporting the crate.
 - Build mode leaves the player and orbits the pad: WASD turns around the center or zooms.
 - Academy people cluster around bunk, table, and pad edges instead of a center line; names sit over their heads.
+- Ship hall is a hull now: steel-framed windows look out on starry space, not an open pastel sky.
+- Hull is wider and taller; build cam starts close, stays inside the ship, scroll tilts up/down.
+- Pad tests: the crate sits where it will fall; stacked parts hold it instead of getting shoved.
+- Build tray is a little pixel hull terminal: brackets, pips, and a blinking link light.

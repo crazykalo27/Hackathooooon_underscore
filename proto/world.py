@@ -18,7 +18,13 @@ from proto.config import (
     SHIP_FLOOR_B,
     SHIP_ROSE,
     SHIP_WALL,
+    SKY,
+    SPACE,
+    STAR,
+    STAR_DIM,
+    STEEL,
     TEAL,
+    HULL_CEIL,
     rgb,
 )
 from proto.figure import attach, shade
@@ -43,9 +49,12 @@ class World:
         self.pads.clear()
 
     def load(self, map_name: str, flags: dict):
+        from ursina import color, window
+
         self.clear()
         self.map_name = map_name
         scene.fog_density = 0
+        window.color = color.rgb(*(SPACE if map_name == "ship" else SKY))
         if map_name == "ship":
             self._ship(flags)
         elif map_name == "c2":
@@ -60,9 +69,78 @@ class World:
         from proto.config import HALL_HALF
 
         z = HALL_HALF - 0.35
-        self._box(col, (x, 2.15, -z), (0.5, 4.3, 0.5))
-        self._box(col, (x, 2.15, z), (0.5, 4.3, 0.5))
-        self._box(col, (x, 4.4, 0), (0.5, 0.4, HALL_HALF * 2))
+        self._box(col, (x, 3.6, -z), (0.5, 7.2, 0.5))
+        self._box(col, (x, 3.6, z), (0.5, 7.2, 0.5))
+        self._box(col, (x, 7.3, 0), (0.5, 0.4, HALL_HALF * 2))
+
+    def _starfield(self, length):
+        import random
+
+        from proto.config import HALL_HALF
+
+        hz = HALL_HALF
+        rng = random.Random(21)
+        for _ in range(140):
+            side = rng.choice(("n", "s", "up", "w", "e"))
+            if side == "n":
+                pos = (rng.uniform(-10, length + 10), rng.uniform(0.4, 14), rng.uniform(hz + 6, hz + 32))
+            elif side == "s":
+                pos = (rng.uniform(-10, length + 10), rng.uniform(0.4, 14), rng.uniform(-(hz + 32), -(hz + 6)))
+            elif side == "up":
+                pos = (rng.uniform(-4, length + 4), rng.uniform(HULL_CEIL + 2, 26), rng.uniform(-(hz + 8), hz + 8))
+            elif side == "w":
+                pos = (rng.uniform(-30, -10), rng.uniform(0.2, 16), rng.uniform(-(hz + 6), hz + 6))
+            else:
+                pos = (rng.uniform(length + 8, length + 30), rng.uniform(0.2, 16), rng.uniform(-(hz + 6), hz + 6))
+            s = rng.choice((0.07, 0.09, 0.12, 0.16, 0.22, 0.34))
+            self._box(STAR if rng.random() > 0.28 else STAR_DIM, pos, (s, s, s))
+        self._box((96, 88, 138), (26, 6.2, -(hz + 12)), (5.6, 5.6, 5.6))
+        self._box((72, 118, 148), (60, 8.0, hz + 14), (2.5, 2.5, 2.5))
+        self._box((186, 118, 96), (10, 11.0, hz + 10), (1.3, 1.3, 1.3))
+
+    def _window(self, x, z, w=3.1, h=2.15, y=2.18):
+        inward = -0.1 if z > 0 else 0.1
+        fz = z + inward
+        self._box(STEEL, (x - w * 0.5, y, fz), (0.12, h, 0.2))
+        self._box(STEEL, (x + w * 0.5, y, fz), (0.12, h, 0.2))
+        self._box(STEEL, (x, y + h * 0.5, fz), (w + 0.12, 0.12, 0.2))
+        self._box(STEEL, (x, y - h * 0.5, fz), (w + 0.12, 0.12, 0.2))
+        self._box(STEEL, (x, y, fz), (0.08, h, 0.1))
+
+    def _hull_side(self, length, z, col):
+        self._box(col, (length / 2, 0.5, z), (length + 8, 1.0, 0.46), collider="box")
+        self._box(col, (length / 2, 3.95, z), (length + 8, 1.12, 0.5), collider="box")
+        self._box(col, (length / 2, 6.3, z), (length + 8, 3.6, 0.5), collider="box")
+        spacing = 9.0
+        win_w = 3.1
+        windows = [4.0 + i * spacing for i in range(int((length - 6) / spacing))]
+        prev = -4.0
+        for wx in windows:
+            left = wx - win_w * 0.5
+            pier_w = left - prev
+            if pier_w > 0.35:
+                self._box(col, ((prev + left) * 0.5, 2.15, z), (pier_w, 2.3, 0.46), collider="box")
+            self._window(wx, z, win_w)
+            prev = wx + win_w * 0.5
+        end = length + 4.0
+        pier_w = end - prev
+        if pier_w > 0.35:
+            self._box(col, ((prev + end) * 0.5, 2.15, z), (pier_w, 2.3, 0.46), collider="box")
+
+    def _west_viewport(self, hz):
+        wide = hz * 2 + 0.8
+        gap = 2.15
+        wing_d = hz + 0.4 - gap
+        wing_c = gap + wing_d * 0.5
+        self._box(SHIP_WALL, (-4.5, 0.5, 0), (0.5, 1.0, wide), collider="box")
+        self._box(SHIP_WALL, (-4.5, 6.1, 0), (0.5, 4.0, wide), collider="box")
+        self._box(SHIP_WALL, (-4.5, 2.55, -wing_c), (0.5, 3.1, wing_d), collider="box")
+        self._box(SHIP_WALL, (-4.5, 2.55, wing_c), (0.5, 3.1, wing_d), collider="box")
+        self._box(STEEL, (-4.35, 2.2, -gap), (0.18, 2.3, 0.12))
+        self._box(STEEL, (-4.35, 2.2, gap), (0.18, 2.3, 0.12))
+        self._box(STEEL, (-4.35, 3.35, 0), (0.18, 0.12, gap * 2))
+        self._box(STEEL, (-4.35, 1.05, 0), (0.18, 0.12, gap * 2))
+        self._box(ACCENT, (-4.5, HULL_CEIL, 0), (0.6, 0.28, 2.8))
 
     def _label(self, x, text, y=2.4, z=-4.35):
         w = min(0.28 * max(len(text), 4), 2.6)
@@ -126,19 +204,19 @@ class World:
         length = SHIP_LEN
         hz = HALL_HALF
         wide = hz * 2 + 0.8
+        self._starfield(length)
         self._box(SHIP_FLOOR, (length / 2, -0.22, 0), (length + 10, 0.44, wide), collider="box")
         for i, x in enumerate(range(-4, int(length), 4)):
             tile = SHIP_FLOOR if i % 2 == 0 else SHIP_FLOOR_B
             self._box(tile, (x + 2, 0.01, 0), (3.7, 0.05, wide - 0.8))
-        self._box(SHIP_ROSE, (length / 2, 0.55, -hz - 0.2), (length + 10, 1.1, 0.35), collider="box")
-        self._box(SHIP_WALL, (length / 2, 0.55, hz + 0.2), (length + 10, 1.1, 0.35), collider="box")
-        self._box(SHIP_WALL, (-4.5, 2.0, 0), (0.5, 4.0, wide), collider="box")
-        self._box(ACCENT, (-4.5, 4.2, 0), (0.6, 0.35, 3.2))
+        self._hull_side(length, -hz - 0.22, SHIP_ROSE)
+        self._hull_side(length, hz + 0.22, SHIP_WALL)
+        self._west_viewport(hz)
+        for x in range(2, int(length), 8):
+            self._box(SHIP_WALL, (x + 2.2, HULL_CEIL, 0), (5.2, 0.22, wide - 0.5))
+            self._box(STEEL, (x + 5.5, HULL_CEIL, 0), (0.28, 0.16, wide - 0.7))
         for x in range(8, int(length), 12):
             self._arch(x, SHIP_WALL if (x // 12) % 2 == 0 else CREAM)
-        for x in range(2, int(length), 10):
-            self._box((168, 204, 220), (x, 2.15, -hz - 0.25), (1.6, 1.3, 0.12))
-            self._box(GOLD, (x + 5, 2.8, hz + 0.25), (0.9, 0.18, 0.18))
         self._box(SHIP_ROSE, (3.2, 0.35, -2.2), (3.2, 0.7, 2.0), collider="box")
         self._box(CREAM, (2.4, 0.78, -2.2), (1.4, 0.18, 1.5))
         self._box(ACCENT, (4.4, 0.85, -2.2), (0.35, 0.35, 0.35))
@@ -150,9 +228,6 @@ class World:
         self._box(SHIP_ROSE, (ex, 1.2, 0), (2.2, 2.4, 2.2), collider="box")
         self._box(ACCENT, (ex, 2.6, 0), (1.4, 0.4, 1.4))
         self._box(CREAM, (ex, 3.4, 0), (0.7, 1.2, 0.7))
-        self._box((210, 228, 236), (16, 6.4, -hz - 3), (1.4, 1.4, 1.4))
-        self._box((232, 200, 186), (40, 7.2, hz + 3), (0.9, 0.9, 0.9))
-        self._box((176, 208, 196), (70, 6.8, -hz - 2), (1.1, 1.1, 1.1))
         for z in story.SHIP_ZONES:
             self._pad(z)
         for n in story.SHIP_NPCS:

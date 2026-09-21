@@ -1,12 +1,21 @@
-"""Title, HUD, dialogue, and the build tray."""
+"""Title, HUD, dialogue, and a pixel space-age build overlay."""
 
 from __future__ import annotations
+
+import time as wall
 
 from ursina import Entity, Text, camera, color
 
 from proto import story
-from proto.config import ACCENT, CREAM, INK, MATERIALS, MUTED, PAPER, TEAL, rgb
+from proto.config import ACCENT, GOLD, INK, MATERIALS, MUTED, STAR, TEAL, rgb
 from proto.visuals import COLOR
+
+NAVY = (20, 24, 40)
+PANEL = (32, 38, 58)
+WELL = (14, 16, 30)
+EDGE = (88, 196, 186)
+PIP_OFF = (48, 56, 72)
+CREAM_UI = (250, 242, 230)
 
 
 def _quad(col, **kw):
@@ -17,16 +26,57 @@ def _quad(col, **kw):
     return Entity(**kw)
 
 
+def _label(text, x, y, scale=0.65, col=CREAM_UI, **kw):
+    kw.setdefault("origin", (0, 0))
+    return Text(parent=camera.ui, text=text, x=x, y=y, scale=scale, color=rgb(col), **kw)
+
+
+def _lift(col, k=40):
+    return tuple(min(255, c + k) for c in col[:3])
+
+
+def _pixel_frame(items, x, y, w, h):
+    """Chunky hull plate with L-corners, screws, and a teal hairline."""
+    items.append(_quad(NAVY, scale=(w + 0.016, h + 0.016), x=x, y=y, z=2))
+    items.append(_quad(PANEL, scale=(w, h), x=x, y=y, z=1.6))
+    items.append(_quad(WELL, scale=(w - 0.022, h - 0.022), x=x, y=y, z=1.4))
+    items.append(_quad(EDGE, scale=(w - 0.04, 0.007), x=x, y=y + h * 0.5 - 0.028, z=1.2))
+    items.append(_quad(EDGE, scale=(w - 0.04, 0.004), x=x, y=y - h * 0.5 + 0.022, z=1.2))
+    hw, hh = w * 0.5, h * 0.5
+    for sx, sy in ((-1, 1), (1, 1), (-1, -1), (1, -1)):
+        cx, cy = x + sx * (hw - 0.012), y + sy * (hh - 0.012)
+        items.append(_quad(EDGE, scale=(0.032, 0.007), x=cx - sx * 0.008, y=cy, z=1.1))
+        items.append(_quad(EDGE, scale=(0.007, 0.032), x=cx, y=cy - sy * 0.008, z=1.1))
+        items.append(_quad(GOLD, scale=(0.01, 0.01), x=cx, y=cy, z=1.0))
+    top = y + hh - 0.042
+    for i in range(9):
+        items.append(
+            _quad(STAR if i % 3 == 0 else (90, 110, 130), scale=(0.008, 0.008), x=x - w * 0.32 + i * 0.026, y=top, z=1.0)
+        )
+
+
+def _bevel_btn(col, x, y, w, h, action, value, items):
+    row = _quad(col, scale=(w, h), x=x, y=y, z=0.8, collider="box")
+    row.action = action
+    row.value = value
+    items.append(row)
+    items.append(_quad(_lift(col, 36), scale=(w * 0.9, 0.006), x=x, y=y + h * 0.5 - 0.007, z=0.6))
+    items.append(_quad((12, 14, 22), scale=(w * 0.9, 0.004), x=x, y=y - h * 0.5 + 0.006, z=0.6))
+    return row
+
+
 class BuildMenu:
     def __init__(self):
         self.items = []
         self.status = None
         self._sig = None
+        self._led = None
         self.enabled = False
 
     def hide(self):
         self.enabled = False
         self._sig = None
+        self._led = None
         for e in self.items:
             e.enabled = False
         if self.status:
@@ -61,73 +111,82 @@ class BuildMenu:
         if sig == self._sig and self.enabled:
             if self.status:
                 self.status.text = builder.message
+            if self._led:
+                on = int(wall.time() * 2.4) % 2 == 0
+                self._led.color = rgb(TEAL if on else PIP_OFF)
             return
         self._sig = sig
         self._rebuild(builder, kinds, mats)
 
     def _rebuild(self, builder, kinds, mats):
-        for e in self.items:
-            from ursina import destroy
+        from ursina import destroy
 
+        for e in self.items:
             destroy(e)
         self.items.clear()
         if self.status:
-            from ursina import destroy
-
             destroy(self.status)
             self.status = None
 
-        panel = _quad(PAPER, scale=(0.26, 0.78), x=0.38, y=0.0, z=1, collider=None)
-        self.items.append(panel)
-        title = Text(parent=camera.ui, text="BUILD", x=0.38, y=0.36, origin=(0, 0), scale=0.85, color=rgb(ACCENT))
-        self.items.append(title)
-        zone = builder.zone.key.upper() if builder.zone else ""
-        sub = Text(parent=camera.ui, text=zone, x=0.38, y=0.31, origin=(0, 0), scale=0.7, color=rgb(INK))
-        self.items.append(sub)
+        x, y = 0.39, 0.02
+        w, h = 0.30, 0.84
+        _pixel_frame(self.items, x, y, w, h)
 
-        y = 0.24
-        hint = Text(parent=camera.ui, text="PART", x=0.38, y=y, origin=(0, 0), scale=0.65, color=rgb(MUTED))
-        self.items.append(hint)
-        y -= 0.055
+        head = y + h * 0.5 - 0.07
+        self.items.append(_label("SEEDED  //  BUILD", x, head, 0.62, ACCENT))
+        self._led = _quad(TEAL, scale=(0.014, 0.014), x=x + 0.118, y=head, z=0.5)
+        self.items.append(self._led)
+        self.items.append(_quad(PIP_OFF, scale=(0.014, 0.014), x=x + 0.136, y=head, z=0.5))
+        self.items.append(_quad(GOLD, scale=(0.014, 0.014), x=x + 0.154, y=head, z=0.5))
+
+        zone = (builder.zone.key if builder.zone else "bay").upper()
+        self.items.append(_label(f"BAY  ·  {zone}", x, head - 0.04, 0.58, TEAL))
+        self.items.append(_label("PWR OK   COM 01   LINK", x, head - 0.068, 0.5, MUTED))
+
+        yy = head - 0.11
+        self.items.append(_quad(EDGE, scale=(0.012, 0.012), x=x - 0.11, y=yy, z=0.5))
+        self.items.append(_label("PART", x - 0.02, yy, 0.58, MUTED))
+        yy -= 0.048
         for kind in kinds:
             on = kind == builder.kind
-            row = _quad(ACCENT if on else CREAM, scale=(0.2, 0.045), x=0.38, y=y, collider="box")
-            row.action = "kind"
-            row.value = kind
-            label = Text(parent=camera.ui, text=kind, x=0.38, y=y, origin=(0, 0), scale=0.7, color=rgb(PAPER if on else INK))
-            self.items.extend((row, label))
-            y -= 0.05
+            _bevel_btn(ACCENT if on else PANEL, x, yy, 0.22, 0.042, "kind", kind, self.items)
+            self.items.append(_label(kind.upper(), x, yy, 0.62, CREAM_UI if on else (186, 196, 210)))
+            yy -= 0.046
 
-        y -= 0.02
-        hint = Text(parent=camera.ui, text="MATERIAL", x=0.38, y=y, origin=(0, 0), scale=0.65, color=rgb(MUTED))
-        self.items.append(hint)
-        y -= 0.055
+        yy -= 0.012
+        self.items.append(_quad(GOLD, scale=(0.012, 0.012), x=x - 0.11, y=yy, z=0.5))
+        self.items.append(_label("MAT", x - 0.028, yy, 0.58, MUTED))
+        yy -= 0.048
         for i, mat in enumerate(mats):
             on = mat == builder.material
             swatch = MATERIALS.get(mat, MUTED)
-            row = _quad(swatch if on else CREAM, scale=(0.2, 0.045), x=0.38, y=y, collider="box")
-            row.action = "mat"
-            row.value = mat
-            label = Text(parent=camera.ui, text=f"{i+1}  {mat}", x=0.38, y=y, origin=(0, 0), scale=0.7, color=rgb(INK))
-            self.items.extend((row, label))
-            y -= 0.05
+            _bevel_btn(PANEL if not on else _lift(swatch, -20), x, yy, 0.22, 0.042, "mat", mat, self.items)
+            self.items.append(_quad(swatch, scale=(0.02, 0.028), x=x - 0.086, y=yy, z=0.4))
+            self.items.append(_label(f"{i + 1}  {mat.upper()}", x + 0.012, yy, 0.6, CREAM_UI))
+            yy -= 0.046
 
-        y -= 0.02
+        yy -= 0.01
         for action, caption, col in (
-            ("test", "T  test", TEAL),
-            ("undo", "RMB  undo", MUTED),
+            ("test", "T   TEST", TEAL),
+            ("undo", "RMB  UNDO", (96, 104, 124)),
         ):
-            row = _quad(col, scale=(0.2, 0.045), x=0.38, y=y, collider="box")
-            row.action = action
-            row.value = action
-            label = Text(parent=camera.ui, text=caption, x=0.38, y=y, origin=(0, 0), scale=0.7, color=rgb(PAPER))
-            self.items.extend((row, label))
-            y -= 0.05
+            _bevel_btn(col, x, yy, 0.22, 0.044, action, action, self.items)
+            self.items.append(_label(caption, x, yy, 0.62, CREAM_UI))
+            yy -= 0.05
 
-        stamp = "ENTER  stamp" if builder.goal_done else "click pad to place"
-        foot = Text(parent=camera.ui, text=stamp, x=0.38, y=-0.36, origin=(0, 0), scale=0.7, color=rgb(ACCENT if builder.goal_done else INK))
-        self.items.append(foot)
-        self.status = Text(parent=camera.ui, text=builder.message, x=0.38, y=-0.42, origin=(0, 0), scale=0.6, color=rgb(INK), wordwrap=22)
+        ready = builder.goal_done
+        stamp = "ENTER  STAMP" if ready else "CLICK TO PLACE"
+        self.items.append(_label(stamp, x, y - h * 0.5 + 0.07, 0.62, GOLD if ready else CREAM_UI))
+        self.status = Text(
+            parent=camera.ui,
+            text=builder.message,
+            x=x,
+            y=y - h * 0.5 + 0.038,
+            origin=(0, 0),
+            scale=0.52,
+            color=rgb(MUTED),
+            wordwrap=24,
+        )
         self.enabled = True
         for e in self.items:
             e.enabled = True
@@ -139,6 +198,7 @@ class UI:
         self.title = None
         self.hud_obj = None
         self.hud_meta = None
+        self.hud_chrome = []
         self.banner = None
         self.prompt = None
         self.talk_sp = None
@@ -150,14 +210,16 @@ class UI:
         self._build()
 
     def _build(self):
-        self.hud_meta = Text("", parent=camera.ui, position=(-0.72, 0.44), origin=(-0.5, 0.5), scale=1.0, color=rgb(ACCENT))
-        self.hud_obj = Text("", parent=camera.ui, position=(-0.72, 0.38), origin=(-0.5, 0.5), scale=1.0, color=rgb(INK), wordwrap=48)
-        self.banner = Text("", parent=camera.ui, position=(0, 0.32), origin=(0, 0), scale=1.2, color=rgb(ACCENT), enabled=False)
-        self.prompt = Text("", parent=camera.ui, position=(0, -0.42), origin=(0, 0), scale=1.2, color=rgb(TEAL), enabled=False)
+        self.hud_chrome = []
+        _pixel_frame(self.hud_chrome, -0.48, 0.40, 0.62, 0.15)
+        self.hud_meta = Text("", parent=camera.ui, position=(-0.74, 0.445), origin=(-0.5, 0.5), scale=0.85, color=rgb(ACCENT))
+        self.hud_obj = Text("", parent=camera.ui, position=(-0.74, 0.392), origin=(-0.5, 0.5), scale=0.8, color=rgb(CREAM_UI), wordwrap=42)
+        self.banner = Text("", parent=camera.ui, position=(0, 0.28), origin=(0, 0), scale=1.1, color=rgb(ACCENT), enabled=False)
+        self.prompt = Text("", parent=camera.ui, position=(0, -0.42), origin=(0, 0), scale=1.15, color=rgb(TEAL), enabled=False)
         self.build_bar = Text("", parent=camera.ui, position=(0, -0.47), origin=(0, 0), scale=1.0, color=color.white, enabled=False)
 
         self.talk_sp = Text(parent=camera.ui, text="", y=-0.34, scale=1.0, color=rgb(ACCENT), origin=(0, 0), enabled=False)
-        self.talk_tx = Text(parent=camera.ui, text="", y=-0.40, scale=0.9, color=rgb(INK), origin=(0, 0), wordwrap=42, enabled=False)
+        self.talk_tx = Text(parent=camera.ui, text="", y=-0.40, scale=0.9, color=rgb(CREAM_UI), origin=(0, 0), wordwrap=42, enabled=False)
         self.talk_hint = Text(parent=camera.ui, text="E / Enter  continue", y=-0.46, scale=0.75, color=rgb(MUTED), origin=(0, 0), enabled=False)
 
         self.title_bits = [
@@ -169,6 +231,8 @@ class UI:
     def show_title(self, on):
         for bit in self.title_bits:
             bit.enabled = on
+        for e in self.hud_chrome:
+            e.enabled = not on
         if on:
             self.hud_meta.enabled = False
             self.hud_obj.enabled = False
@@ -233,15 +297,18 @@ class UI:
             return
         if not self.help:
             self.help = Entity(parent=camera.ui)
-            Entity(parent=self.help, model="quad", shader=COLOR, color=color.rgba(10, 12, 20, 230), scale=(0.55, 0.32))
+            bits = []
+            _pixel_frame(bits, 0, 0, 0.62, 0.34)
+            for e in bits:
+                e.parent = self.help
             lines = [
                 "WASD walk · mouse look · Esc unlock mouse",
                 "E talk · B build on a glowing pad",
-                "Build: WASD orbit/zoom · click to place",
+                "Build: A/D orbit · W/S zoom · scroll tilt",
                 "T test · Enter stamp · RMB undo",
             ]
             y = 0.1
             for line in lines:
-                Text(parent=self.help, text=line, y=y, scale=0.9, color=rgb(MUTED), origin=(0, 0))
-                y -= 0.06
+                Text(parent=self.help, text=line, y=y, scale=0.85, color=rgb(CREAM_UI), origin=(0, 0))
+                y -= 0.055
         self.help.enabled = True

@@ -6,7 +6,7 @@ from ursina import Entity, color, mouse, time
 
 from proto import story
 from proto.builder import Builder
-from proto.config import EARTH_LEN, SHIP_LEN
+from proto.config import EARTH_LEN, HALL_HALF, HULL_CEIL, SHIP_LEN, WALK_Z
 from proto.player import Player
 from proto.state import State
 from proto.ui import UI
@@ -78,7 +78,8 @@ class Game(Entity):
             # keep on floor maps
             length = story.map_len(self.state.map_name)
             self.player.x = max(1.0, min(length - 1.5, self.player.x))
-            self.player.z = max(-7.4, min(7.4, self.player.z))
+            zlim = WALK_Z if self.state.map_name == "ship" else 7.4
+            self.player.z = max(-zlim, min(zlim, self.player.z))
             if self.state.map_name == "earth" and self.state.flag("ravine") and self.player.x > EARTH_LEN - 2.5:
                 if not self.state.flag("c2_elevator_done"):
                     self.begin_fade(self._to_c2, "East trail", "Heat instead of a gap.")
@@ -169,7 +170,7 @@ class Game(Entity):
                 self.builder.test()
             if key == "r":
                 z = self.builder.zone
-                self.builder.enter(z, self.state.flags)
+                self.builder.enter(z, self.state.flags, hull=self._hull_bounds())
             if key == "enter":
                 self.stamp()
             if key == "tab":
@@ -179,6 +180,10 @@ class Game(Entity):
                 idx = int(key) - 1
                 if idx < len(names):
                     self.builder.set_mat(names[idx], self.state.flags)
+            if key == "scroll up":
+                self.builder.nudge_pitch(8)
+            if key == "scroll down":
+                self.builder.nudge_pitch(-8)
 
     def wake(self):
         self.state.mode = "play"
@@ -259,11 +264,11 @@ class Game(Entity):
         if zone.gate_flag and not self.state.flag(zone.gate_flag):
             self._banner(zone.gate_msg)
             return
-        self.builder.enter(zone, self.state.flags)
+        self.builder.enter(zone, self.state.flags, hull=self._hull_bounds())
         self.state.mode = "build"
         self.player.disable()
         self.player.visible = False
-        self._banner("WASD orbit the pad. Click to place.")
+        self._banner("WASD orbit · scroll tilts. Click to place.")
 
     def stamp(self):
         if not self.builder.goal_done:
@@ -290,6 +295,22 @@ class Game(Entity):
         self.player.visible = True
         self.player.enable()
         self.player.snap_camera()
+
+    def _hull_bounds(self):
+        if self.state.map_name != "ship":
+            z = self.world.zone_here(self.player) or self.builder.zone
+            if not z:
+                return None
+            return (
+                z.x - z.w * 0.7,
+                z.x + z.w * 0.7,
+                0.5,
+                12.0,
+                z.z - z.d * 0.7,
+                z.z + z.d * 0.7,
+            )
+        m = HALL_HALF - 0.75
+        return (0.4, SHIP_LEN - 0.7, 0.55, HULL_CEIL - 0.45, -m, m)
 
     def begin_fade(self, cb, title, sub):
         self.fade_dir = 1
