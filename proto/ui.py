@@ -10,6 +10,7 @@ from proto import story
 from proto.config import (
     FONT,
     MATERIALS,
+    STARTERS,
     UI_CHIP,
     UI_CHIP_DEEP,
     UI_CLAY,
@@ -32,9 +33,33 @@ KIND_GLYPH = {
     "box": (UI_WOOD, (0.030, 0.030)),
     "bar": (UI_ROOF, (0.044, 0.012)),
     "ball": (UI_CLAY, (0.028, 0.028)),
+    "plate": (UI_PEACH, (0.040, 0.016)),
+    "wedge": (UI_CLAY, (0.032, 0.022)),
     "piston": (UI_GRASS, (0.016, 0.036)),
+    "spring": (UI_GOLD, (0.018, 0.032)),
     "motor": (UI_GOLD, (0.028, 0.028)),
     "brace": (UI_PEACH, (0.036, 0.016)),
+    "battery": (UI_GRASS, (0.024, 0.020)),
+    "wire": (UI_ROOF, (0.040, 0.008)),
+    "switch": (UI_CLAY, (0.022, 0.022)),
+}
+
+NODE_LABELS = {
+    "first_invention": "Base kit",
+    "trial_hydraulics": "Hydraulics trial",
+    "trial_circuits": "Circuits trial",
+    "trial_structure": "Structure trial",
+    "capstone": "Capstone",
+    "sticky": "Sticky",
+    "icy": "Icy",
+    "bouncy": "Bouncy",
+    "registered": "Registered",
+}
+
+PICK_BLURBS = {
+    "hydraulics": "Pistons and springs. Weight and lift.",
+    "circuits": "Battery, wire, switch, motor.",
+    "structure": "Plates, braces, stronger spans.",
 }
 
 WORLDS = {"ship": "Academy", "earth": "Colony 1", "c2": "Colony 2"}
@@ -216,6 +241,9 @@ class BuildMenu:
             if action == "mat":
                 builder.set_mat(e.value, flags)
                 return True
+            if action == "weld":
+                builder.confirm()
+                return True
             if action == "test":
                 builder.test()
                 return True
@@ -230,7 +258,16 @@ class BuildMenu:
     def present(self, builder, flags):
         kinds = tuple(builder.kinds(flags))
         mats = tuple(builder.mats(flags))
-        sig = (kinds, mats, builder.kind, builder.material, builder.goal_done, builder.zone.key if builder.zone else "")
+        load = (round(builder.load_cap, 1), round(builder.load_used, 1), builder.confirmed)
+        sig = (
+            kinds,
+            mats,
+            builder.kind,
+            builder.material,
+            builder.goal_done,
+            builder.zone.key if builder.zone else "",
+            load,
+        )
         if sig == self._sig and self.enabled:
             if self.status:
                 self.status.text = _fit(builder.message, 22, 2)
@@ -250,12 +287,12 @@ class BuildMenu:
 
         cols = 3
         kind_rows = max(1, (len(kinds) + cols - 1) // cols)
-        tile = 0.078
-        gap = 0.010
+        tile = 0.072
+        gap = 0.008
         inner_w = cols * tile + (cols - 1) * gap
         w = inner_w + 0.064
-        h = 0.34 + kind_rows * (tile + 0.022) + 0.20
-        h = min(0.92, h)
+        h = 0.36 + kind_rows * (tile + 0.020) + 0.24
+        h = min(0.96, h)
         x = _half_w() - w * 0.5 - 0.028
         y = -0.02
         left, right, top, bottom = _card(self.items, x, y, w, h)
@@ -269,18 +306,18 @@ class BuildMenu:
         for i, kind in enumerate(kinds):
             on = kind == builder.kind
             bx = xs0 + (i % cols) * (tile + gap)
-            by = yy - (i // cols) * (tile + 0.022)
+            by = yy - (i // cols) * (tile + 0.020)
             if on:
-                self.items.append(_quad(UI_ROOF, scale=(tile + 0.012, tile + 0.012), x=bx, y=by, z=0.85))
+                self.items.append(_quad(UI_ROOF, scale=(tile + 0.010, tile + 0.010), x=bx, y=by, z=0.85))
             _hit(UI_CREAM if on else UI_CREAM_D, bx, by, tile, tile, "kind", kind, self.items)
             gcol, gsz = KIND_GLYPH.get(kind, (UI_WOOD, (0.028, 0.028)))
-            if kind in ("ball", "motor"):
+            if kind in ("ball", "motor", "switch"):
                 self.items.append(_dot(gcol, bx, by + 0.006, s=gsz[0], z=0.4))
             else:
                 self.items.append(_quad(gcol, scale=gsz, x=bx, y=by + 0.006, z=0.4))
-            self.items.append(_ink(_pretty(kind), bx, by - tile * 0.42, 0.62, UI_INK if on else UI_MUTED, origin=(0, 0.5)))
+            self.items.append(_ink(_pretty(kind), bx, by - tile * 0.42, 0.58, UI_INK if on else UI_MUTED, origin=(0, 0.5)))
 
-        yy = yy - kind_rows * (tile + 0.022) - 0.012
+        yy = yy - kind_rows * (tile + 0.020) - 0.010
         self.items.append(_ink("Color", left, yy, 0.82, UI_MUTED))
         yy -= 0.036
         sw = 0.034
@@ -293,20 +330,34 @@ class BuildMenu:
             _hit((0, 0, 0, 0), bx, yy, sw + 0.01, sw + 0.01, "mat", mat, self.items, z=0.5)
             self.items.append(_dot(swatch, bx, yy, s=sw, z=0.45))
 
-        yy -= 0.050
+        yy -= 0.044
+        if builder.zone and builder.zone.goal == "shelf":
+            self.items.append(
+                _ink(
+                    f"Load {builder.load_used:.1f} / {builder.load_cap:.1f}",
+                    left,
+                    yy,
+                    0.78,
+                    UI_ROOF if builder.load_cap >= builder.load_used * 0.85 else UI_CLAY,
+                )
+            )
+            yy -= 0.028
+
         act_w = right - left
-        act_h = 0.044
+        act_h = 0.040
+        weld_col = UI_ROOF if builder.confirmed else UI_GOLD
         for action, caption, fill, ink in (
+            ("weld", "Weld  C", weld_col, UI_CREAM if builder.confirmed else UI_INK),
             ("test", "Test  T", UI_GRASS, UI_INK),
             ("undo", "Undo", UI_CREAM_D, UI_INK),
             ("reset", "Reset  X", UI_CLAY, UI_CREAM),
         ):
             _hit(fill, x, yy, act_w, act_h, action, action, self.items)
-            self.items.append(_ink(caption, x, yy, 0.92, ink, origin=(0, 0)))
-            yy -= act_h + 0.010
+            self.items.append(_ink(caption, x, yy, 0.88, ink, origin=(0, 0)))
+            yy -= act_h + 0.008
 
         ready = builder.goal_done
-        stamp = "Enter to stamp" if ready else "Click to place"
+        stamp = "Enter to stamp" if ready else "Drag bar · click place"
         self.items.append(_ink("R spin   F flip", x, bottom + 0.052, 0.72, UI_MUTED, origin=(0, 0.5)))
         self.items.append(_ink(stamp, x, bottom + 0.028, 0.88, UI_ROOF if ready else UI_INK, origin=(0, 0.5)))
         self.status = _ink(_fit(builder.message, 22, 2), x, bottom + 0.004, 0.78, UI_MUTED, origin=(0, 0.5))
@@ -336,6 +387,13 @@ class UI:
         self.build_menu = BuildMenu()
         self.help = None
         self.name_slots = []
+        self.pick_items = []
+        self.pick_hits = []
+        self.flash_items = []
+        self.catalog_items = []
+        self._flash_sig = None
+        self._pick_sig = None
+        self._catalog_sig = None
         self._build()
 
     def _build(self):
@@ -410,6 +468,9 @@ class UI:
             _enable(self.banner_chrome + [self.banner], False)
             _enable(self._talk, False)
             self.build_menu.hide()
+            self._hide_pick()
+            self._hide_flash()
+            self._hide_catalog()
             self.sync_names([], None, False)
 
     def refresh(self, state, near_npc=None, near_zone=None, dialogue=None, d_i=0, typed=0, builder=None, zoom_pct=None):
@@ -426,10 +487,19 @@ class UI:
             self.hud_zoom.text = f"{int(round(zoom_pct))}%"
         self.hud_obj.text = _fit(story.objective(state.flags), 28, 2)
 
-        show_banner = state.banner_t > 0 and state.banner and state.mode != "talk"
+        show_banner = state.banner_t > 0 and state.banner and state.mode not in ("talk", "pick")
         _enable(self.banner_chrome + [self.banner], show_banner)
         if show_banner:
             self.banner.text = _fit(state.banner, 32, 2)
+
+        if state.mode == "pick":
+            self._present_pick(state)
+            _enable(self._talk, False)
+            _enable(self._prompt, False)
+            self.build_menu.hide()
+            self._hide_catalog()
+        else:
+            self._hide_pick()
 
         talking = state.mode == "talk" and dialogue and d_i < len(dialogue)
         if talking:
@@ -442,7 +512,7 @@ class UI:
             if int(typed) < len(tx) and int(wall.time() * 2.6) % 2 == 0:
                 body += "."
             self.talk_tx.text = body or " "
-        else:
+        elif state.mode != "pick":
             _enable(self._talk, False)
             if state.mode == "play" and near_npc:
                 _enable(self._prompt, True)
@@ -455,8 +525,124 @@ class UI:
 
         if state.mode == "build" and builder:
             self.build_menu.present(builder, state.flags)
+            self._present_catalog(state)
         else:
             self.build_menu.hide()
+            if state.mode != "play":
+                self._hide_catalog()
+            else:
+                self._present_catalog(state, compact=True)
+
+        if state.flash_t > 0 and state.flash_node:
+            self._present_flash(state)
+        else:
+            self._hide_flash()
+
+    def _hide_pick(self):
+        from ursina import destroy
+
+        for e in self.pick_items:
+            destroy(e)
+        self.pick_items.clear()
+        self.pick_hits.clear()
+        self._pick_sig = None
+
+    def _present_pick(self, state):
+        sig = (state.pick_focus, tuple(STARTERS))
+        if sig == self._pick_sig and self.pick_items:
+            return
+        self._hide_pick()
+        self._pick_sig = sig
+        left, right, top, bottom = _card(self.pick_items, 0, 0.02, 1.14, 0.52)
+        self.pick_items.append(_ink("Pick a starter", 0, top - 0.01, 1.25, UI_INK, origin=(0, 0.5)))
+        self.pick_items.append(
+            _ink("Bias, not a prison. 1 / 2 / 3 or click.", 0, top - 0.055, 0.85, UI_MUTED, origin=(0, 0.5))
+        )
+        card_w = 0.32
+        gap = 0.04
+        total = 3 * card_w + 2 * gap
+        x0 = -total * 0.5 + card_w * 0.5
+        for i, branch in enumerate(STARTERS):
+            on = i == state.pick_focus
+            cx = x0 + i * (card_w + gap)
+            cy = -0.02
+            ch = 0.28
+            if on:
+                self.pick_items.append(_quad(UI_ROOF, scale=(card_w + 0.018, ch + 0.018), x=cx, y=cy, z=1.7))
+            hit = _hit(UI_CREAM if on else UI_CREAM_D, cx, cy, card_w, ch, "pick", branch, self.pick_items, z=1.5)
+            self.pick_hits.append(hit)
+            self.pick_items.append(_ink(f"{i + 1}", cx, cy + 0.10, 0.9, UI_MUTED, origin=(0, 0.5)))
+            self.pick_items.append(_ink(_pretty(branch), cx, cy + 0.04, 1.05, UI_INK, origin=(0, 0.5)))
+            self.pick_items.append(
+                _ink(_fit(PICK_BLURBS[branch], 16, 3), cx, cy - 0.04, 0.72, UI_MUTED, origin=(0, 0.5))
+            )
+        self.pick_items.append(_ink("Enter confirm · Esc cancel", 0, bottom + 0.02, 0.8, UI_MUTED, origin=(0, 0.5)))
+
+    def pick_hit(self):
+        for e in self.pick_hits:
+            if getattr(e, "hovered", False) and getattr(e, "action", None) == "pick":
+                return e.value
+        return None
+
+    def _hide_flash(self):
+        from ursina import destroy
+
+        for e in self.flash_items:
+            destroy(e)
+        self.flash_items.clear()
+        self._flash_sig = None
+
+    def _present_flash(self, state):
+        node = state.flash_node
+        sig = (node, int(state.flash_t * 2))
+        if sig[0] == getattr(self, "_flash_node", None) and self.flash_items:
+            return
+        self._hide_flash()
+        self._flash_node = node
+        label = NODE_LABELS.get(node, _pretty(node.replace("starter:", "Starter · ")))
+        if str(node).startswith("starter:"):
+            label = f"Starter · {_pretty(str(node).split(':', 1)[1])}"
+        hw = _half_w()
+        x = hw - 0.28
+        y = 0.18
+        left, right, top, bottom = _card(self.flash_items, x, y, 0.42, 0.16)
+        self.flash_items.append(_dot(UI_GOLD, left + 0.02, (top + bottom) * 0.5 + 0.02, s=0.028, z=0.4))
+        self.flash_items.append(_ink("Catalog node", left + 0.05, top - 0.01, 0.78, UI_MUTED))
+        self.flash_items.append(_ink(label, left + 0.05, top - 0.045, 1.1, UI_ROOF))
+        self.flash_items.append(_ink("Knowledge unlocked", left + 0.05, bottom + 0.02, 0.72, UI_INK))
+
+    def _hide_catalog(self):
+        from ursina import destroy
+
+        for e in self.catalog_items:
+            destroy(e)
+        self.catalog_items.clear()
+        self._catalog_sig = None
+
+    def _present_catalog(self, state, compact=False):
+        inv = state.inventions()
+        sig = (tuple(i["name"] for i in inv[-5:]), compact, state.mode)
+        if sig == self._catalog_sig and self.catalog_items:
+            return
+        self._hide_catalog()
+        if not inv:
+            return
+        self._catalog_sig = sig
+        hw = _half_w()
+        rows = inv[-4:] if compact else inv[-6:]
+        h = 0.06 + len(rows) * 0.038
+        w = 0.40
+        x = -hw + w * 0.5 + 0.028
+        y = -0.18 if not compact else -0.22
+        left, _r, top, _b = _card(self.catalog_items, x, y, w, h)
+        self.catalog_items.append(_ink("Inventions", left, top - 0.002, 0.85, UI_MUTED))
+        yy = top - 0.032
+        for row in reversed(rows):
+            self.catalog_items.append(_ink(_fit(row["name"], 22, 1), left, yy, 0.72, UI_INK))
+            yy -= 0.034
+
+    def catalog_hit(self):
+        return False
 
     def sync_names(self, npcs, cam, visible=True):
         from ursina import Vec3
@@ -492,17 +678,17 @@ class UI:
         if not self.help:
             self.help = Entity(parent=camera.ui)
             bits = []
-            left, _right, top, _bottom = _card(bits, 0, 0, 0.72, 0.38)
+            left, _right, top, _bottom = _card(bits, 0, 0, 0.78, 0.44)
             for e in bits:
                 e.parent = self.help
             lines = (
                 "WASD walk · arrows pan · drag orbit · scroll zoom",
-                "E talk · B build on a glowing pad",
-                "Build: R spin · F flip · T test · X reset",
+                "E talk · B build · P starter pick",
+                "Build: drag bar · C weld · T test · X reset",
                 "Enter stamp · right click undo",
             )
             y = top - 0.004
             for line in lines:
-                _ink(line, 0, y, 0.95, UI_INK, origin=(0, 0.5), parent=self.help)
-                y -= 0.062
+                _ink(line, 0, y, 0.92, UI_INK, origin=(0, 0.5), parent=self.help)
+                y -= 0.058
         self.help.enabled = True

@@ -62,13 +62,32 @@ EARTH_SAND = (236, 196, 140)
 EARTH_CLIFF = (196, 124, 88)
 SHADOW = (10, 14, 24)
 
+STICKY_WOOD = (196, 120, 140)
+STICKY_STEEL = (168, 140, 196)
+
 MATERIALS = {
     "wood": WOOD,
     "steel": STEEL,
     "sticky": STICKY,
     "icy": ICY,
     "bouncy": BOUNCY,
+    "sticky_wood": STICKY_WOOD,
+    "sticky_steel": STICKY_STEEL,
 }
+
+# Catalog nodes that flash the skill-tree UI when unlocked
+TREE_NODES = (
+    "first_invention",
+    "trial_hydraulics",
+    "trial_circuits",
+    "trial_structure",
+    "starter",
+    "capstone",
+    "sticky",
+    "icy",
+    "bouncy",
+    "registered",
+)
 
 STARTERS = ("hydraulics", "circuits", "structure")
 

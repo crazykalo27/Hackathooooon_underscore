@@ -7,7 +7,7 @@ from ursina import Entity, color, mouse, time
 from proto import story
 from proto.builder import Builder
 from proto.camera import GodCam
-from proto.config import EARTH_LEN, SHIP_LEN, WALK_Z
+from proto.config import EARTH_LEN, SHIP_LEN, STARTERS, TREE_NODES, WALK_Z
 from proto.player import Player
 from proto.state import State
 from proto.ui import UI
@@ -68,6 +68,8 @@ class Game(Entity):
         dt = time.dt
         if self.state.banner_t > 0:
             self.state.banner_t -= dt
+        if self.state.flash_t > 0:
+            self.state.flash_t -= dt
 
         if self.state.mode == "fade":
             self._update_fade(dt)
@@ -78,7 +80,6 @@ class Game(Entity):
             self.state.tick_day(dt)
             self.near_npc = self.world.nearest_npc(self.player)
             self.near_zone = self.world.zone_here(self.player)
-            # keep on floor maps
             length = story.map_len(self.state.map_name)
             self.player.x = max(1.0, min(length - 1.5, self.player.x))
             zlim = WALK_Z if self.state.map_name == "ship" else 7.4
@@ -122,7 +123,7 @@ class Game(Entity):
         self.ui.sync_names(
             self.world.npcs,
             self.cam,
-            visible=self.state.mode not in ("title", "fade") and not far,
+            visible=self.state.mode not in ("title", "fade", "pick") and not far,
         )
         if self.state.mode == "fade":
             self.fade_veil.enabled = True
@@ -139,12 +140,14 @@ class Game(Entity):
                 self._leave_build()
             elif self.state.mode == "talk":
                 self._end_talk(cancel=True)
+            elif self.state.mode == "pick":
+                self._close_pick()
             elif self.state.mode == "fade":
                 self._skip_fade()
             elif mouse.locked:
                 mouse.locked = False
             elif self.state.mode == "play":
-                mouse.locked = True  # lock: swipe-orbit without holding a button
+                mouse.locked = True
             return
 
         if self.state.mode == "title":
@@ -154,11 +157,31 @@ class Game(Entity):
                 self.continue_save()
             return
 
+        if self.state.mode == "pick":
+            if key in ("1", "2", "3"):
+                self._choose_starter(STARTERS[int(key) - 1])
+            if key in ("left arrow", "a"):
+                self.state.pick_focus = (self.state.pick_focus - 1) % 3
+            if key in ("right arrow", "d"):
+                self.state.pick_focus = (self.state.pick_focus + 1) % 3
+            if key in ("enter", "e", "space"):
+                self._choose_starter(STARTERS[self.state.pick_focus])
+            if key == "left mouse down":
+                choice = self.ui.pick_hit()
+                if choice:
+                    self._choose_starter(choice)
+            return
+
         if key == "h":
             self.ui.toggle_help()
         if key == "f5":
             self.state.save(self.player.x, self.player.z)
             self._banner("Saved.")
+        if key == "p" and self.state.mode == "play":
+            if story.all_trials(self.state.flags) and not self.state.flag("starter"):
+                self.open_pick()
+            elif self.state.flag("starter"):
+                self._banner(f"Starter locked: {self.state.flags['starter']}.")
 
         if self.state.mode == "talk" and key in ("e", "enter", "space"):
             self._advance_talk()
@@ -178,9 +201,16 @@ class Game(Entity):
             if key == "left mouse down":
                 if self.ui.build_menu.consume_click(self.builder, self.state.flags):
                     return
-                self.builder.place()
+                if self.ui.catalog_hit():
+                    return
+                self.builder.begin_stroke()
+            if key == "left mouse up":
+                if self.builder.stroke:
+                    self.builder.end_stroke()
             if key == "t":
                 self.builder.test()
+            if key == "c":
+                self.builder.confirm()
             if key == "r":
                 self.builder.rotate()
             if key == "f":
@@ -226,9 +256,22 @@ class Game(Entity):
             self.cam.resume()
         self._banner("Continued.")
 
+    def _snap_flags(self):
+        return {k: self.state.flags.get(k) for k in TREE_NODES}
+
+    def _flash_new_nodes(self, before):
+        for key in TREE_NODES:
+            now = self.state.flags.get(key)
+            was = before.get(key)
+            if now and now != was:
+                self.state.flash(key if key != "starter" else f"starter:{now}")
+                break
+
     def start_talk(self, npc):
         self.state.flags["_map"] = self.state.map_name
+        before = self._snap_flags()
         raw = story.lines(npc.talk_id, self.state.flags, self.state.map_name)
+        self._flash_new_nodes(before)
         self.dialogue = [(a, b) for a, b in raw if a != "*"]
         self.cmd = next((b for a, b in raw if a == "*"), None)
         self.d_i = 0
@@ -268,17 +311,59 @@ class Game(Entity):
             self.state.mode = "play"
             self.player.enable()
             self._banner(f"Day {self.state.day}.")
+        elif cmd == "open_pick":
+            self.open_pick()
         else:
             self.state.mode = "play"
             self.player.enable()
             if self.state.flag("met_mara") and not self.state.flag("first_invention"):
                 self._banner("Yellow WORKSHOP pad. Stand on it, press B.")
-            # refresh world if mentors should appear
+            if story.all_trials(self.state.flags) and not self.state.flag("starter"):
+                self._banner("Trials done. Talk to a mentor or press P to pick a starter.")
             if self.state.flag("first_invention"):
                 x, z = self.player.x, self.player.z
                 self.world.load(self.state.map_name, self.state.flags)
                 self.player.teleport(x, z)
             self.state.save(self.player.x, self.player.z)
+
+    def open_pick(self):
+        if self.state.flag("starter"):
+            self.state.mode = "play"
+            self.player.enable()
+            self._banner(f"Already chose {self.state.flags['starter']}.")
+            return
+        if not story.all_trials(self.state.flags):
+            self.state.mode = "play"
+            self.player.enable()
+            self._banner("Finish all three trials first.")
+            return
+        self.state.mode = "pick"
+        self.state.pick_focus = 0
+        self.player.disable()
+        self._banner("Choose your starter — bias, not a prison.")
+
+    def _close_pick(self):
+        self.state.mode = "play"
+        self.player.enable()
+
+    def _choose_starter(self, branch):
+        if branch not in STARTERS:
+            return
+        before = self._snap_flags()
+        self.state.set_flag("starter", branch)
+        self.state.add_branch_xp(branch, 1)
+        if branch == "hydraulics":
+            self.state.flags["unlock_spring"] = True
+        elif branch == "circuits":
+            self.state.flags["unlock_circuit_kit"] = True
+        self._flash_new_nodes(before)
+        self.state.mode = "play"
+        self.player.enable()
+        self._banner(f"Starter: {branch}. Capstone needs a {branch} part.")
+        x, z = self.player.x, self.player.z
+        self.world.load(self.state.map_name, self.state.flags)
+        self.player.teleport(x, z)
+        self.state.save(x, z)
 
     def enter_build(self):
         zone = self.world.zone_here(self.player)
@@ -294,21 +379,37 @@ class Game(Entity):
         self.player.visible = False
         if self.cam:
             self.cam.pin(zone.x, zone.z)
-        self._banner("R spin · F flip · X reset pad · T test. Click to place.")
+        self._banner("Bar: drag to draw. C weld · T test · Enter stamp.")
 
     def stamp(self):
         if not self.builder.goal_done:
             self._banner("Press T first — wait for 'It holds!'")
             return
+        if self.builder.zone and self.builder.zone.goal == "free" and not self.builder.has_starter_part():
+            self._banner("Capstone needs a part from your starter branch.")
+            return
         key = self.builder.zone.key
+        before = self._snap_flags()
         info = story.STAMP_FLAGS.get(key)
+        name = self.builder.invention_name()
+        self.state.add_invention(name, key, self.state.day)
+        self.builder.last_invention = name
         if info:
             flag, msg, pay = info
             self.state.set_flag(flag)
             self.state.add_money(pay)
-            self._banner(msg)
+            if key == "hydro":
+                self.state.add_branch_xp("hydraulics", 1)
+            elif key == "circuit":
+                self.state.add_branch_xp("circuits", 1)
+            elif key == "struct":
+                self.state.add_branch_xp("structure", 1)
+            self._banner(f"{msg} Catalog: {name}")
             if key == "pylon":
                 self.state.flags["elevator_start_day"] = self.state.day
+        else:
+            self._banner(f"Stamped: {name}")
+        self._flash_new_nodes(before)
         self._leave_build()
         x, z = self.player.x, self.player.z
         self.world.load(self.state.map_name, self.state.flags)

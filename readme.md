@@ -16,22 +16,24 @@ python3 -m venv .venv
 
 ### First 5 minutes
 1. **Enter** — talk to **Mara** (E)
-2. Stand on yellow **WORKSHOP** → **B** → **click** place → **T** → **Enter** stamp
-3. Everyone else in the hall is optional
+2. Stand on yellow **WORKSHOP** → **B** → place (drag for bars) → **C** weld → **T** → **Enter** stamp
+3. Trials → **P** (or mentor) pick a starter → lab capstone with a starter part
 
 ### Controls
 | Key | |
 | --- | --- |
 | WASD | walk (camera-relative) |
 | Arrows | pan the camera; in build, rotate |
-| Drag | orbit. Build: right-drag (left click places) |
+| Drag | orbit. Build: left-drag draws a bar |
 | Scroll | zoom |
 | Mouse | Esc locks for clickless orbit |
 | E / Enter | talk / continue / stamp |
 | B | build on pad |
 | Click | place part |
 | Tab | cycle parts |
+| C | weld / confirm |
 | T | test |
+| P | starter pick (after all trials) |
 | Esc | leave build / unlock mouse |
 | H | help |
 | F5 | save |

@@ -16,9 +16,39 @@ class State:
         self.map_name = "ship"
         self.day = 1
         self.day_clock = 0.0
-        self.mode = "title"  # title | play | talk | build | fade
+        self.mode = "title"  # title | play | talk | build | fade | pick
         self.banner = ""
         self.banner_t = 0.0
+        self.flash_node = ""
+        self.flash_t = 0.0
+        self.pick_focus = 0  # starter picker index
+
+    def inventions(self):
+        return list(self.flags.get("inventions") or [])
+
+    def add_invention(self, name, zone, day):
+        inv = self.inventions()
+        inv.append({"name": name, "zone": zone, "day": day})
+        self.flags["inventions"] = inv[-24:]
+
+    def flash(self, node, seconds=3.2):
+        self.flash_node = node
+        self.flash_t = seconds
+
+    def branch_xp(self, branch):
+        xp = self.flags.get("branch_xp") or {}
+        return int(xp.get(branch, 0))
+
+    def add_branch_xp(self, branch, amount=1):
+        xp = dict(self.flags.get("branch_xp") or {})
+        bias = 2 if self.flags.get("starter") == branch else 1
+        xp[branch] = int(xp.get(branch, 0)) + amount * bias
+        self.flags["branch_xp"] = xp
+        # Bias unlocks: starter (or enough XP) opens the next toy
+        if branch == "hydraulics" and xp[branch] >= 1:
+            self.flags["unlock_spring"] = True
+        if branch == "circuits" and xp[branch] >= 1:
+            self.flags["unlock_circuit_kit"] = True
 
     def flag(self, key, default=False):
         return self.flags.get(key, default)

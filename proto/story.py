@@ -50,15 +50,15 @@ class NpcDef:
 
 
 SHIP_ZONES = [
-    Zone("workshop", 22, 0, 12, 12, "shelf", "Stack a shelf, T to drop the crate", GOLD,
+    Zone("workshop", 22, 0, 12, 12, "shelf", "Stack a shelf — C weld, T drop crate", GOLD,
          gate_flag="met_mara", gate_msg="Talk to Mara by the bunk first."),
-    Zone("hydro", 38, 0, 10, 10, "lift", "Piston under the crate, T to lift", HYDRO,
+    Zone("hydro", 38, 0, 10, 10, "lift", "Piston or spring under crate, T to lift", HYDRO,
          gate_flag="first_invention", gate_msg="Workshop first.", lift_y=1.8),
-    Zone("circuit", 52, 0, 10, 10, "roll", "Motor against the crate, T to roll", CIRCUIT,
+    Zone("circuit", 52, 0, 10, 10, "roll", "Battery → wire/switch → motor, T to roll", CIRCUIT,
          gate_flag="first_invention", gate_msg="Workshop first."),
-    Zone("struct", 68, 0, 12, 10, "span", "Brace across the gap, T to roll", STRUCT, gap=(65.5, 70.5),
+    Zone("struct", 68, 0, 12, 10, "span", "Brace across the gap — weak spans snap", STRUCT, gap=(65.5, 70.5),
          gate_flag="first_invention", gate_msg="Workshop first."),
-    Zone("lab", 82, 0, 10, 10, "free", "Capstone pad — T anything that holds", TEAL,
+    Zone("lab", 82, 0, 10, 10, "free", "Capstone — include a starter part", TEAL,
          gate_flag="starter", gate_msg="Pick a starter mentor first."),
 ]
 
@@ -122,19 +122,19 @@ def objective(flags):
     if not flags.get("met_mara"):
         return "Talk to Mara by the bunk. WASD walk, E talk."
     if not flags.get("first_invention"):
-        return "Yellow WORKSHOP pad. Stand, B, click, T, Enter."
+        return "Yellow workshop. B, place, C weld, T, Enter."
     if not flags.get("trial_hydraulics"):
-        return "Blue HYDRAULICS — Olia. B, piston, T, Enter."
+        return "Blue hydraulics — Olia. Piston or spring lift."
     if not flags.get("trial_circuits"):
-        return "Green CIRCUITS pad — Vex."
+        return "Green circuits — Vex. Battery, wire, switch, motor."
     if not flags.get("trial_structure"):
-        return "Gold STRUCTURE pad — Kenji."
+        return "Gold structure — Kenji. Span the gap."
     if not flags.get("starter"):
-        return "Talk to Olia, Vex, or Kenji. Pick a starter."
+        return "All trials done. Talk to a mentor — pick a starter."
     if not flags.get("capstone"):
-        return "Lab pad by Sila — stamp any build."
+        return "Lab pad — build with a starter part, then stamp."
     if not flags.get("registered"):
-        return "Talk to Sila to register."
+        return "Talk to Sila to register your capstone."
     if not flags.get("deployed"):
         return "Elevator at the far end — ride to Earth."
     if not flags.get("met_dust"):
@@ -144,7 +144,7 @@ def objective(flags):
     if not flags.get("sample"):
         return "Take the sticky sample on the far ledge."
     if not flags.get("sticky"):
-        return "Elevator up — register with Sila."
+        return "Elevator up — register sticky with Sila."
     if not flags.get("discovered_c2"):
         return "East trail to Colony 2."
     if not flags.get("shade"):
@@ -184,36 +184,33 @@ def lines(talk_id, flags, map_name="ship"):
         ]
     if talk_id == "olia":
         if flags.get("starter") == "hydraulics":
-            return [("Olia", "Pistons. Earth has weight.")]
+            return [("Olia", "Pistons and springs. Earth has weight.")]
         if flags.get("starter"):
             return [("Olia", "Not my bay.")]
         if not flags.get("trial_hydraulics"):
-            return [("Olia", "My pad. Place a piston (Tab), T to lift, Enter to stamp.")]
+            return [("Olia", "My pad. Piston or spring under the crate. C weld, T lift, Enter.")]
         if all_trials(flags) and not s:
-            flags["starter"] = "hydraulics"
-            return [("Olia", "Starter: Hydraulics. Bias, not a prison.")]
-        return [("Olia", "Trial stamped. Finish all three, then talk to pick me.")]
+            return [("Olia", "All trials done. Open the starter pick — choose Hydraulics if it felt right."), ("*", "open_pick")]
+        return [("Olia", "Trial stamped. Finish all three, then we pick a starter.")]
     if talk_id == "vex":
         if flags.get("starter") == "circuits":
-            return [("Vex", "Motors.")]
+            return [("Vex", "Battery. Wire. Switch. Motor.")]
         if flags.get("starter"):
             return [("Vex", "Go on.")]
         if not flags.get("trial_circuits"):
-            return [("Vex", "Motor on the pad. T pushes the crate right. Stamp.")]
+            return [("Vex", "Chain: battery touches wire or switch, then motor. T rolls the crate.")]
         if all_trials(flags) and not s:
-            flags["starter"] = "circuits"
-            return [("Vex", "Starter: Circuits.")]
-        return [("Vex", "Stamped.")]
+            return [("Vex", "All three stamped. Pick Circuits on the starter screen if that is you."), ("*", "open_pick")]
+        return [("Vex", "Stamped. Two more trials, then pick.")]
     if talk_id == "kenji":
         if flags.get("starter") == "structure":
-            return [("Kenji", "Span first.")]
+            return [("Kenji", "Span first. Your braces hold harder now.")]
         if flags.get("starter"):
             return [("Kenji", "Fine.")]
         if not flags.get("trial_structure"):
-            return [("Kenji", "Bridge the gap. Keep the crate alive.")]
+            return [("Kenji", "Bridge the gap. Weak wood snaps — steel or a plate helps.")]
         if all_trials(flags) and not s:
-            flags["starter"] = "structure"
-            return [("Kenji", "Starter: Structure.")]
+            return [("Kenji", "Trials done. Pick Structure if spanning is your language."), ("*", "open_pick")]
         return [("Kenji", "Stamped.")]
     if talk_id == "sila":
         if flags.get("sample") and not flags.get("sticky"):
@@ -228,13 +225,13 @@ def lines(talk_id, flags, map_name="ship"):
             flags["money"] = flags.get("money", 0) + 40
             return [("Sila", "Bouncy is a word now.")]
         if flags.get("starter") and not flags.get("capstone"):
-            return [("Sila", "Capstone on my pad first.")]
+            return [("Sila", "Capstone on my pad — use a part from your starter branch.")]
         if flags.get("starter") and not flags.get("registered"):
             flags["registered"] = True
             return [("Sila", "Registered. Elevator is far right. That is the loop, named.")]
         if flags.get("registered") and not flags.get("deployed"):
             return [("Sila", "Go.")]
-        return [("Sila", "Workshop, trials, starter — then I stamp.")]
+        return [("Sila", "Workshop, trials, starter pick, capstone — then I stamp.")]
     if talk_id == "elevator":
         if map_name == "earth":
             return [("Elevator", "Ship?"), ("*", "elevator_up")]

@@ -1,5 +1,10 @@
 # Underscore log
 
+- Build loop deepened: C weld islands, weak spans snap, stroke-to-beam bars, plate/wedge, sticky mix, spring + circuit chain, shelf load meter, falling parts, pad blueprints, named invention catalog.
+- Starter is an explicit pick screen (P / mentors) with XP bias unlocks; capstone requires a starter part; catalog node flash when knowledge registers.
+
+- Proto backlog of 100 design→slice gaps in `docs/proto-backlog.md` (small polish → skill tree, vitality, co-op, Unity).
+
 - Play zoom tops out at 20%; past that it eases to map mode at 40%. Hull cutaway ends at 40%.
 
 - Top bar shows zoom-out percent (distance / max).
