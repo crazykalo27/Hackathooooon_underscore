@@ -7,6 +7,7 @@
 - Camera pans when the player is near the cutaway rim, so they stay in the hole.
 - Cabin cutaway is a circular hole through the hull, not missing blocks. Follow starts at 25% in from that ring.
 - The hole is a circle in the middle of the screen.
+- Follow uses that same screen ring, 25% in, so it stays consistent at any zoom.
 
 - Names are screen labels now (no black world boxes). Loader paints for real while the hall builds in slices.
 

@@ -42,6 +42,18 @@ def _cut_radius(dist):
     return 8.0 + max(dist, 4.0) * 0.34
 
 
+def cut_screen_radius(dist, fov=None, aspect=None):
+    """Same NDC ring the hull shader uses (vertical NDC units)."""
+    from ursina import camera
+
+    from proto.config import CAM_FOV
+
+    fov = fov if fov is not None else getattr(camera, "fov", CAM_FOV)
+    half = math.tan(math.radians(max(float(fov), 1.0)) * 0.5)
+    ndc = _cut_radius(dist) / max(dist, 1.0) / max(half, 0.05)
+    return max(0.32, min(0.86, ndc))
+
+
 class World:
     def __init__(self):
         self.root = None
@@ -104,12 +116,7 @@ class World:
             return
         from ursina import camera
 
-        from proto.config import CAM_FOV
-
-        radius = _cut_radius(dist)
-        half = math.tan(math.radians(max(getattr(camera, "fov", CAM_FOV), 1.0)) * 0.5)
-        ndc = radius / max(dist, 1.0) / max(half, 0.05)
-        ndc = max(0.32, min(0.86, ndc))
+        ndc = cut_screen_radius(dist)
         aspect = float(getattr(camera, "aspect_ratio", 1.6) or 1.6)
         key = (int(ndc * 80), int(aspect * 20), int(look.x * 4), int(look.z * 4))
         if key == self._cut:

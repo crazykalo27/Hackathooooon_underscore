@@ -105,8 +105,10 @@ class GodCam(Entity):
             self._zoom_step(dt)
         self._apply()
         if not self.frozen and not self.pinned:
-            self._edge_follow(dt)
-            self._apply()
+            for _ in range(3):
+                if not self._edge_follow(dt):
+                    break
+                self._apply()
 
     def _orbit(self):
         dragging = mouse.locked or mouse.right or mouse.middle
@@ -152,30 +154,48 @@ class GodCam(Entity):
         return self.look + Vec3(ox, oy, oz)
 
     def _project(self, world_pos):
+        """Shader-space offset: (ndc.x * aspect, ndc.y), same as the hull hole."""
         p3d = camera.getRelativePoint(scene, world_pos)
         full = camera.lens.getProjectionMat().xform(Vec4(p3d[0], p3d[1], p3d[2], 1.0))
         w = full[3]
         if w <= 0.08:
             return None
-        return Vec2(full[0] / w * camera.aspect_ratio * 0.5, full[1] / w * 0.5)
+        aspect = float(camera.aspect_ratio or 1.6)
+        return Vec2(full[0] / w * aspect, full[1] / w)
 
     def _edge_follow(self, dt):
-        from proto.world import _cut_radius
+        from proto.world import cut_screen_radius
 
-        hole = _cut_radius(self.dist)
-        limit = max(2.2, hole * (1.0 - CAM_EDGE))
-        dx = self.player.x - self.look.x
-        dz = self.player.z - self.look.z
-        dist = math.sqrt(dx * dx + dz * dz)
-        if dist <= limit:
-            return
-        if dist < 0.05:
-            return
-        extra = dist - limit
-        step = extra if dist > hole * 0.92 else extra * min(1.0, dt * 14)
-        self.look.x += (dx / dist) * step
-        self.look.z += (dz / dist) * step
+        hole = cut_screen_radius(self.dist)
+        limit = hole * (1.0 - CAM_EDGE)
+        head = Vec3(self.player.x, CAM_LOOK_Y, self.player.z)
+        scr = self._project(head)
+        if scr is None:
+            self.look = head
+            return True
+        mag = math.sqrt(scr.x * scr.x + scr.y * scr.y)
+        if mag <= limit + 0.002:
+            return False
+        extra = mag - limit
+        half = math.tan(math.radians(max(camera.fov, 1.0)) * 0.5)
+        world_per = self.dist * half
+        right = Vec3(camera.right.x, 0, camera.right.z)
+        if right.length() > 0.05:
+            right = right.normalized()
+        else:
+            right = self.view_right()
+        up = Vec3(camera.up.x, 0, camera.up.z)
+        if up.length() < 0.08:
+            up = Vec3(-camera.forward.x, 0, -camera.forward.z)
+        if up.length() > 0.05:
+            up = up.normalized()
+        else:
+            up = self.view_forward()
+        inv = 1.0 / mag
+        self.look += right * (scr.x * inv) * extra * world_per
+        self.look += up * (scr.y * inv) * extra * world_per
         self.look.y = CAM_LOOK_Y
+        return True
 
     def _apply(self):
         self.pitch = max(CAM_PITCH_MIN, min(CAM_PITCH_MAX, self.pitch))
